@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      API_KEY: ${API_KEY:-change-me}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-http://host.docker.internal:8899}
+      KEYPAIR_PATH: /app/deployer.json
+    volumes:
+      - ${HOME}/.config/solana/id.json:/app/deployer.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

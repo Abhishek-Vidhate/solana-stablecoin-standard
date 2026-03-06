@@ -1,0 +1,48 @@
+{
+  "name": "@abhishek-vidhate/sss-token",
+  "version": "0.1.0",
+  "description": "Solana Stablecoin Standard SDK — modular toolkit for issuing stablecoins on Solana",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "lint": "prettier --check \"src/**/*.ts\"",
+    "lint:fix": "prettier --write \"src/**/*.ts\""
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./types": "./dist/types.js",
+    "./pda": "./dist/pda.js",
+    "./presets": "./dist/presets/index.js",
+    "./instructions": "./dist/instructions/index.js"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.10",
+    "@solana/spl-token-metadata": "^0.1.6",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.7.3"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/solanabr/solana-stablecoin-standard"
+  },
+  "keywords": [
+    "solana",
+    "stablecoin",
+    "token-2022",
+    "spl-token",
+    "sdk"
+  ]
+}

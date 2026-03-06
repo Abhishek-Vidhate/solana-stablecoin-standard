@@ -1,0 +1,23 @@
+.anchor
+.DS_Store
+target
+**/*.rs.bk
+node_modules
+test-ledger
+.yarn
+wallets/
+.cursor/
+reference/
+
+# Build / generated
+sdk/dist
+*.tsbuildinfo
+
+# Env and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# IDE
+.vscode/
