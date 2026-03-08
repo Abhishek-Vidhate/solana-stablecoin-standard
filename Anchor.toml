@@ -18,4 +18,7 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "npx ts-mocha -p ./tests/tsconfig.json -t 120000 tests/**/*.test.ts"
+# NODE_OPTIONS disables Node 22+ experimental type stripping (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING)
+# tsx replaces ts-mocha for Node 24+ compatibility (avoids "Unexpected token" with ts-node)
+# setup-report.ts patches Mocha when REPORT=1 to generate reports/report-*.md
+test = "NODE_OPTIONS='--no-experimental-strip-types' npx mocha --require tsx/cjs --require tests/setup-report.ts --timeout 120000 'tests/*.test.ts'"

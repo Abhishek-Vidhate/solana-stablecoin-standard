@@ -5,13 +5,14 @@ A production-grade framework for issuing and managing stablecoins on Solana usin
 ```mermaid
 graph TD
     subgraph "Off-Chain"
-        CLI["CLI — sss-token"]
+        CLI["CLI — sss-token (Rust)"]
         API["REST API — Express"]
         SDK["SDK — @abhishek-vidhate/sss-token"]
     end
 
-    CLI --> SDK
+    CLI --> Core
     API --> SDK
+    SDK --> Core
 
     subgraph "On-Chain"
         Core["sss-core<br/>CoREsjH41J3..."]
@@ -94,17 +95,25 @@ await stablecoin.compliance.blacklistAdd(
 
 ## CLI Usage
 
+The CLI is a Rust binary (`sss-token`) built with clap. Install via `cargo install --path cli` or run with `cargo run -p sss-cli --`.
+
 ```bash
-# Initialize
+# Build and run
+cargo build -p sss-cli
+./target/debug/sss-token --help
+
+# Initialize (generates mint keypair; omit --mint to create new)
 sss-token init --preset 2 --name "Regulated USD" --symbol "rUSD" --decimals 6
 export SSS_MINT=<mint_address>
 
 # Operate
-sss-token mint --to <RECIPIENT> --amount 1000000000
-sss-token freeze --account <TOKEN_ACCOUNT>
-sss-token thaw --account <TOKEN_ACCOUNT>
-sss-token blacklist add --address <WALLET> --reason "COMPLIANCE-001"
-sss-token status
+sss-token mint --mint $SSS_MINT --to <RECIPIENT> --amount 1000000000
+sss-token freeze --mint $SSS_MINT --account <TOKEN_ACCOUNT>
+sss-token thaw --mint $SSS_MINT --account <TOKEN_ACCOUNT>
+sss-token blacklist add --mint $SSS_MINT --address <WALLET> --reason "COMPLIANCE-001"
+sss-token holders --mint $SSS_MINT
+sss-token audit-log --mint $SSS_MINT
+sss-token status --mint $SSS_MINT
 ```
 
 ## Backend API
@@ -128,6 +137,9 @@ curl -X POST http://localhost:3000/operations/mint \
 - **7 roles:** Admin, Minter, Freezer, Pauser, Burner, Blacklister, Seizer
 - **Two-step authority transfer:** Propose then accept to prevent lockout
 - **Token-2022 native:** MetadataPointer, PermanentDelegate, TransferHook, DefaultAccountState, ConfidentialTransferMint, TransferFeeConfig
+- **Pyth oracle:** Recommended for collateralized preset extensions; SDK `oracle` module with `PRICE_FEED_REGISTRY`, staleness checks. See [ARCHITECTURE.md#oracle-fields--pyth-integration](docs/ARCHITECTURE.md#oracle-fields--pyth-integration).
+
+**Differentiators:** Zero-copy config, SSS-4 (transfer fees), two-step authority, sender blacklist fix, Docker, Trident fuzz. See [ARCHITECTURE.md#differentiators](docs/ARCHITECTURE.md#differentiators).
 
 ## Program IDs
 
@@ -143,9 +155,10 @@ programs/
   sss-core/          # Core stablecoin program (Anchor)
   sss-transfer-hook/ # Transfer hook compliance program (Anchor)
 sdk/                 # TypeScript SDK (@abhishek-vidhate/sss-token)
-cli/                 # CLI tool (sss-token)
+cli/                 # Rust CLI (sss-token, clap)
 backend/             # Express REST API
 tests/               # Integration tests (ts-mocha)
+trident-tests/       # Trident fuzz + proptest
 docs/                # Documentation
 ```
 
@@ -171,9 +184,9 @@ docs/                # Documentation
 |---|---|
 | Programs | Rust, Anchor 0.31.1, Token-2022 |
 | SDK | TypeScript, @coral-xyz/anchor, @solana/spl-token |
-| CLI | TypeScript, Commander.js |
+| CLI | Rust, clap, solana-client, spl-token-2022 |
 | Backend | Express, Zod, Winston, Helmet |
-| Tests | ts-mocha, Chai |
+| Tests | ts-mocha, Chai; Trident + proptest |
 | Deployment | Docker, docker-compose |
 
 ## License

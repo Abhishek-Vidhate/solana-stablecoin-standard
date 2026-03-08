@@ -12,6 +12,7 @@ import { createRateLimiter } from "./middleware/rate-limit";
 import healthRouter from "./routes/health";
 import operationsRouter from "./routes/operations";
 import complianceRouter from "./routes/compliance";
+import rolesRouter from "./routes/roles";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/health", healthRouter);
 
 app.use("/operations", requireApiKey, operationsRouter);
 app.use("/compliance", requireApiKey, complianceRouter);
+app.use("/roles", requireApiKey, rolesRouter);
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const RPC_URL = process.env.SOLANA_RPC_URL ?? "http://localhost:8899";

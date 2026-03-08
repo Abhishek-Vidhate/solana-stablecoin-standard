@@ -23,6 +23,7 @@ pub fn run(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> Resul
         minter_role: minter_role_pda,
         mint,
         to: recipient_ata,
+        price_update: None,
         token_program: spl_token_2022::ID,
     }
     .to_account_metas(None);

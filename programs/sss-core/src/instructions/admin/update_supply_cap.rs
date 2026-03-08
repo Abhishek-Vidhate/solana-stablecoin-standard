@@ -49,6 +49,8 @@ pub fn handler_update_supply_cap(
     emit!(ConfigUpdated {
         config: config_key,
         field: "supply_cap".to_string(),
+        old_value: None,
+        new_value: None,
         updater: ctx.accounts.admin.key(),
     });
 

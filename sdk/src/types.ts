@@ -57,6 +57,7 @@ export interface StablecoinInfo {
   enableTransferHook: boolean;
   defaultAccountFrozen: boolean;
   adminCount: number;
+  hasOracleFeed: boolean;
   transferFeeBasisPoints: number;
   maximumFee: BN;
   hasPendingAuthority: boolean;
@@ -85,6 +86,8 @@ export interface MintParams {
   recipient: PublicKey;
   amount: BN;
   minter: PublicKey;
+  /** Required when config.has_oracle_feed is set. Pyth PriceUpdateV2 account. */
+  priceUpdate?: PublicKey | null;
 }
 
 export interface BurnParams {

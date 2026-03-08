@@ -83,6 +83,8 @@ pub fn handler_withdraw_withheld<'info>(
     emit!(ConfigUpdated {
         config: ctx.accounts.config.key(),
         field: "withdraw_withheld".to_string(),
+        old_value: None,
+        new_value: None,
         updater: ctx.accounts.admin.key(),
     });
 

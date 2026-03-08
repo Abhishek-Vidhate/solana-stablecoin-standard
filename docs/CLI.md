@@ -1,21 +1,18 @@
 # CLI Reference — `sss-token`
 
-The SSS CLI provides operator commands for the full stablecoin lifecycle: creation, minting, burning, compliance, role management, and fee administration.
+The SSS CLI is a **Rust (clap) application** that provides operator commands for the full stablecoin lifecycle: creation, minting, burning, compliance, role management, and fee administration. Single binary, no Node.js required.
 
 ## Installation
 
 ```bash
-cd cli
-npm install
-npm run build
-npm link   # makes `sss-token` available globally
+# From workspace root
+cargo build -p sss-cli --release
+
+# Or install globally
+cargo install --path cli
 ```
 
-Or run directly:
-
-```bash
-npx ts-node cli/src/index.ts <command> [options]
-```
+The binary `sss-token` will be at `target/release/sss-token` or in your `$PATH` after `cargo install`.
 
 ## Configuration
 
@@ -23,8 +20,9 @@ npx ts-node cli/src/index.ts <command> [options]
 
 | Option | Flag | Environment Variable | Default |
 |---|---|---|---|
-| RPC URL | `-u, --rpc-url <url>` | `SOLANA_RPC_URL` | `http://localhost:8899` |
-| Keypair path | `-k, --keypair-path <path>` | `SOLANA_KEYPAIR` | `~/.config/solana/id.json` |
+| RPC URL | `--rpc-url <url>` | `SOLANA_RPC_URL` | `https://api.devnet.solana.com` |
+| Keypair path | `--keypair <path>` | `SOLANA_KEYPAIR` | `~/.config/solana/id.json` |
+| Commitment | `--commitment <level>` | — | `confirmed` |
 
 ### Environment Variables
 
@@ -46,38 +44,36 @@ export SSS_MINT="<YOUR_MINT_ADDRESS>"
 
 ### `init` — Initialize a New Stablecoin
 
-Creates a new Token-2022 mint with the specified preset and initializes the on-chain config.
+Creates a new Token-2022 mint with the specified preset and initializes the on-chain config. The CLI builds mint creation instructions in Rust (PermanentDelegate, TransferHook, DefaultAccountState, TransferFeeConfig for SSS-4). SSS-3 requires the TypeScript SDK and will bail with instructions.
 
 ```bash
-sss-token init \
-  --preset <1|2|3|4> \
-  --name <string> \
-  --symbol <string> \
-  [--uri <string>] \
-  [--decimals <number>] \
-  [--supply-cap <number>] \
-  [--fee-bps <number>] \
-  [--max-fee <number>]
+# Preset + name/symbol (mint keypair generated if --mint omitted)
+sss-token init --preset 2 --name "Regulated USD" --symbol "rUSD" [--uri <string>] [--decimals 6] [--supply-cap <n>] [--mint <path>]
+
+# Or use a TOML config file (preset inferred from enable_transfer_hook)
+sss-token init --config stablecoin.toml [--mint <path>]
 ```
 
 | Option | Required | Default | Description |
 |---|:---:|---|---|
-| `--preset` | Yes | — | Preset tier (1=SSS-1, 2=SSS-2, 3=SSS-3, 4=SSS-4) |
-| `--name` | Yes | — | Token name (max 32 chars) |
-| `--symbol` | Yes | — | Token symbol (max 10 chars) |
+| `--preset` | Yes* | — | Preset: 1, 2, 4 or sss-1, sss-2, sss-4. Omit if using `--config` |
+| `--config` | No | — | Path to TOML config (alternative to preset/name/symbol) |
+| `--mint` | No | — | Path to mint keypair JSON. Omit to generate new keypair |
+| `--name` | Yes* | — | Token name (max 32 chars). Omit if using `--config` |
+| `--symbol` | Yes* | — | Token symbol (max 10 chars). Omit if using `--config` |
 | `--uri` | No | `""` | Metadata URI |
 | `--decimals` | No | `6` | Token decimals |
 | `--supply-cap` | No | None | Global supply cap in base units |
-| `--fee-bps` | No | — | Transfer fee basis points (SSS-4 only) |
-| `--max-fee` | No | — | Maximum fee per transfer (SSS-4 only) |
+
+*Either `--config` or `--preset` + `--name` + `--symbol` required.
 
 **Example:**
 
 ```bash
 sss-token init --preset 2 --name "Regulated USD" --symbol "rUSD" --decimals 6
 # Output:
-#   Stablecoin created successfully!
-#   Mint:      7xKL...
+#   ✓ Stablecoin initialized (SSS-2 (Compliance Stablecoin))
+#     Mint:              7xKL...
 #   Config:    9yAB...
 #   Signature: 5zCD...
 #   Set environment variable: export SSS_MINT=7xKL...

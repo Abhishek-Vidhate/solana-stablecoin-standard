@@ -8,6 +8,7 @@ pub struct StablecoinInitialized {
     pub supply_cap: Option<u64>,
     pub name: String,
     pub symbol: String,
+    pub uri: String,
     pub decimals: u8,
 }
 
@@ -99,5 +100,7 @@ pub struct AuthorityTransferred {
 pub struct ConfigUpdated {
     pub config: Pubkey,
     pub field: String,
+    pub old_value: Option<String>,
+    pub new_value: Option<String>,
     pub updater: Pubkey,
 }

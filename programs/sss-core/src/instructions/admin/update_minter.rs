@@ -42,6 +42,8 @@ pub fn handler_update_minter(
     emit!(ConfigUpdated {
         config: ctx.accounts.config.key(),
         field: "minter_quota".to_string(),
+        old_value: None,
+        new_value: None,
         updater: ctx.accounts.admin.key(),
     });
 

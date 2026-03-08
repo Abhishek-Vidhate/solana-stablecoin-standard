@@ -46,6 +46,18 @@ const SeizeBody = z.object({
   amount: z.string().or(z.number()),
 });
 
+const FeesUpdateBody = z.object({
+  mint: pubkeyStr,
+  basisPoints: z.number().min(0).max(10000),
+  maximumFee: z.string().or(z.number()),
+});
+
+const FeesWithdrawBody = z.object({
+  mint: pubkeyStr,
+  destination: pubkeyStr,
+  sources: z.array(pubkeyStr).optional(),
+});
+
 router.post("/mint", async (req: Request, res: Response) => {
   try {
     const body = MintBody.parse(req.body);
@@ -180,6 +192,49 @@ router.post("/seize", async (req: Request, res: Response) => {
     res.json({ success: true, signature });
   } catch (err) {
     logger.error("Seize failed", { error: err instanceof Error ? err.message : String(err) });
+    res.status(400).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.post("/fees/update", async (req: Request, res: Response) => {
+  try {
+    const body = FeesUpdateBody.parse(req.body);
+    const svc = SolanaService.get();
+    const stable = svc.loadStablecoin(body.mint);
+    const wallet = svc.getWallet();
+
+    const signature = await stable.fees.updateFee(
+      wallet.publicKey,
+      body.basisPoints,
+      new BN(body.maximumFee.toString())
+    );
+
+    logger.info("Fees update executed", { mint: body.mint, signature });
+    res.json({ success: true, signature });
+  } catch (err) {
+    logger.error("Fees update failed", { error: err instanceof Error ? err.message : String(err) });
+    res.status(400).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
+router.post("/fees/withdraw", async (req: Request, res: Response) => {
+  try {
+    const body = FeesWithdrawBody.parse(req.body);
+    const svc = SolanaService.get();
+    const stable = svc.loadStablecoin(body.mint);
+    const wallet = svc.getWallet();
+
+    const sources = body.sources?.map((s) => new PublicKey(s));
+    const signature = await stable.fees.withdrawWithheld(
+      wallet.publicKey,
+      new PublicKey(body.destination),
+      sources
+    );
+
+    logger.info("Fees withdraw executed", { mint: body.mint, signature });
+    res.json({ success: true, signature });
+  } catch (err) {
+    logger.error("Fees withdraw failed", { error: err instanceof Error ? err.message : String(err) });
     res.status(400).json({ success: false, error: err instanceof Error ? err.message : String(err) });
   }
 });

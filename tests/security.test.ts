@@ -8,6 +8,7 @@ import {
   airdropSol,
   createSss1Mint,
   createTokenAccount,
+  CORE_PROGRAM_ID,
   deriveConfigPda,
   deriveRolePda,
   grantRole,
@@ -112,6 +113,7 @@ describe("Security Tests", () => {
         minterRole: minterRolePda,
         mint: mint.publicKey,
         to: recipientAta,
+        priceUpdate: CORE_PROGRAM_ID,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
       })
       .signers([minter])
@@ -135,6 +137,7 @@ describe("Security Tests", () => {
             minterRole: attackerMinterPda,
             mint: mint.publicKey,
             to: recipientAta,
+            priceUpdate: CORE_PROGRAM_ID,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
           .signers([attacker])
@@ -275,6 +278,7 @@ describe("Security Tests", () => {
             minterRole: minterRolePda,
             mint: mint.publicKey,
             to: recipientAta,
+            priceUpdate: CORE_PROGRAM_ID,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
           .signers([minter])
@@ -379,6 +383,7 @@ describe("Security Tests", () => {
             minterRole: minterRolePda,
             mint: mint.publicKey,
             to: recipientAta,
+            priceUpdate: CORE_PROGRAM_ID,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
           .signers([minter])
@@ -405,6 +410,7 @@ describe("Security Tests", () => {
             minterRole: minterRolePda,
             mint: mint.publicKey,
             to: recipientAta,
+            priceUpdate: CORE_PROGRAM_ID,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
           .signers([minter])

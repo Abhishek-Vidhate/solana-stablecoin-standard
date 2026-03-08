@@ -8,11 +8,14 @@ import {
   airdropSol,
   createSss1Mint,
   createTokenAccount,
+  CORE_PROGRAM_ID,
   deriveConfigPda,
   deriveRolePda,
   grantRole,
   fetchConfig,
   getTokenBalance,
+  initReportConnection,
+  reportTx,
   ROLE_ADMIN,
   ROLE_MINTER,
   ROLE_FREEZER,
@@ -48,6 +51,7 @@ describe("SSS-1 Stablecoin", () => {
   const MINT_AMOUNT = new BN(500_000_000_000); // 500K tokens
 
   before(async () => {
+    initReportConnection(connection);
     await airdropSol(connection, payer.publicKey, 100);
     await airdropSol(connection, minter.publicKey, 5);
     await airdropSol(connection, freezer.publicKey, 5);
@@ -72,7 +76,7 @@ describe("SSS-1 Stablecoin", () => {
   it("initializes an SSS-1 stablecoin", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
 
-    await coreProgram.methods
+    const initSig = await coreProgram.methods
       .initialize({
         preset: 1,
         name: "Test USD",
@@ -96,6 +100,7 @@ describe("SSS-1 Stablecoin", () => {
         systemProgram: SystemProgram.programId,
       })
       .rpc();
+    reportTx("SSS-1", "initializes an SSS-1 stablecoin", "initialize", initSig);
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.preset).to.equal(1);
@@ -146,7 +151,7 @@ describe("SSS-1 Stablecoin", () => {
       ROLE_MINTER
     );
 
-    await coreProgram.methods
+    const sig = await coreProgram.methods
       .mintTokens(MINT_AMOUNT)
       .accountsPartial({
         minter: minter.publicKey,
@@ -154,10 +159,15 @@ describe("SSS-1 Stablecoin", () => {
         minterRole: minterRolePda,
         mint: mint.publicKey,
         to: recipientAta,
+        priceUpdate: CORE_PROGRAM_ID,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
       })
       .signers([minter])
       .rpc();
+    reportTx("SSS-1", "mints tokens to a recipient", "mint_tokens", sig);
+
+    // Wait for confirmation before reading balance (validator may lag)
+    await connection.confirmTransaction(sig, "confirmed");
 
     const balance = await getTokenBalance(connection, recipientAta);
     expect(balance.toString()).to.equal(MINT_AMOUNT.toString());
@@ -183,6 +193,7 @@ describe("SSS-1 Stablecoin", () => {
           minterRole: minterRolePda,
           mint: mint.publicKey,
           to: recipientAta,
+          priceUpdate: CORE_PROGRAM_ID,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .signers([minter])
@@ -209,7 +220,7 @@ describe("SSS-1 Stablecoin", () => {
       ROLE_BURNER
     );
 
-    await coreProgram.methods
+    const burnSig = await coreProgram.methods
       .burnTokens(burnAmount)
       .accountsPartial({
         burner: burner.publicKey,
@@ -221,6 +232,9 @@ describe("SSS-1 Stablecoin", () => {
       })
       .signers([burner])
       .rpc();
+    reportTx("SSS-1", "grants burner role and burns tokens", "burn_tokens", burnSig);
+
+    await connection.confirmTransaction(burnSig, "confirmed");
 
     const balance = await getTokenBalance(connection, recipientAta);
     expect(balance.toString()).to.equal("400000000000");
@@ -318,6 +332,7 @@ describe("SSS-1 Stablecoin", () => {
           minterRole: minterRolePda,
           mint: mint.publicKey,
           to: recipientAta,
+          priceUpdate: CORE_PROGRAM_ID,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .signers([minter])
@@ -366,7 +381,7 @@ describe("SSS-1 Stablecoin", () => {
 
     const balanceBefore = await getTokenBalance(connection, recipientAta);
 
-    await coreProgram.methods
+    const seizeSig = await coreProgram.methods
       .seize(seizeAmount)
       .accountsPartial({
         seizer: seizer.publicKey,
@@ -379,6 +394,9 @@ describe("SSS-1 Stablecoin", () => {
       })
       .signers([seizer])
       .rpc();
+    reportTx("SSS-1", "seizes tokens via permanent delegate", "seize", seizeSig);
+
+    await connection.confirmTransaction(seizeSig, "confirmed");
 
     const balanceAfter = await getTokenBalance(connection, recipientAta);
     const treasuryBalance = await getTokenBalance(connection, treasuryAta);
@@ -417,6 +435,7 @@ describe("SSS-1 Stablecoin", () => {
           minterRole: minterRolePda,
           mint: mint.publicKey,
           to: recipientAta,
+          priceUpdate: CORE_PROGRAM_ID,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .signers([minter])

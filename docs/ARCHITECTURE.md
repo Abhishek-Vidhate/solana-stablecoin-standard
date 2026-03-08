@@ -9,12 +9,13 @@ The SSS uses a **2-program on-chain architecture** with **SDK-level presets**. R
 ```mermaid
 graph TD
     subgraph "Off-Chain"
-        CLI["CLI<br/>sss-token"]
+        CLI["CLI<br/>sss-token (Rust)"]
         Backend["Backend API<br/>Express + Zod"]
         SDK["@abhishek-vidhate/sss-token<br/>TypeScript SDK"]
     end
 
-    CLI --> SDK
+    CLI --> Core
+    CLI --> Hook
     Backend --> SDK
 
     subgraph "On-Chain Programs"
@@ -259,20 +260,47 @@ sequenceDiagram
     T22-->>Core: Transfer complete
 ```
 
+## Differentiators
+
+Compared to reference implementations (PR#6, PR#19), this SSS implementation adds:
+
+| Differentiator | Description |
+|---|---|
+| **Zero-copy config** | `StablecoinConfig` uses `AccountLoader` for ~80–90% CU reduction on reads; competitors use regular `Account`. |
+| **SSS-4 (Transfer Fees)** | Full preset 4 support: `TransferFeeConfig`, `update_transfer_fee`, `withdraw_withheld` in program, SDK, and CLI. |
+| **Two-step authority transfer** | `propose_authority` / `accept_authority` prevents accidental lockout; competitors use single-step. |
+| **Sender blacklist fix** | Transfer hook derives sender PDA from **owner** in account data, not delegate; fixes delegate bypass (C-1). |
+| **Docker** | `docker-compose` and `Dockerfile` for backend deployment; competitors lack containerized setup. |
+| **Trident fuzz binary** | Real Trident 0.12 with on-chain-style transaction flows and supply invariant; competitors have proptest only. |
+
+---
+
 ## Design Decisions
 
-### Oracle Fields
+### Oracle Fields & Pyth Integration
 
-The `StablecoinConfig` includes `has_oracle_feed` and `oracle_feed_id` fields as extensibility stubs for future collateralized preset extensions. These fields are intentionally not wired into any on-chain validation logic for the current preset family (SSS-1 through SSS-4).
+The `StablecoinConfig` includes `has_oracle_feed` and `oracle_feed_id` fields for oracle-configured mints. **Pyth Network** is the recommended oracle for Solana stablecoin price feeds.
 
-Fiat-backed stablecoins (USDC, PYUSD, USDT) validate price peg off-chain through reserve attestation and redemption policy -- not through on-chain oracle CPIs. Adding on-chain Pyth/Switchboard validation would conflate fiat-backed issuance with collateralized CDP mechanics, which is a fundamentally different product category.
+#### Why Pyth for Stablecoins on Solana
+
+- **Pull oracle model** — Price updates are posted on-chain by Pyth; programs read `PriceUpdateV2` accounts. Suited for collateralized or oracle-gated mint flows.
+- **High-frequency feeds** — Sub-second updates for major pairs (SOL/USD, ETH/USD, USDC/USD).
+- **Rust & TypeScript SDKs** — `pyth-solana-receiver-sdk` (on-chain) and `@pythnetwork/pyth-solana-receiver` (off-chain) integrate with Anchor and the SSS SDK.
+- **Best practices** — Use `getPriceNoOlderThan()` for staleness checks, validate account ownership, and guard against adversarial price selection.
+
+#### SDK Usage
+
+The SDK `oracle` module provides `PRICE_FEED_REGISTRY`, `getOracleFeedIdBytes()`, and `convertUsdToRawAmount()` for oracle-configured mints. See `sdk/src/oracle/index.ts` and `docs/SDK.md`.
+
+#### Fiat-Backed vs Collateralized
+
+Fiat-backed stablecoins (USDC, PYUSD, USDT) validate peg off-chain via reserve attestation. On-chain Pyth validation is intended for **collateralized preset extensions** (e.g. crypto-backed CDPs), not fiat-backed issuance.
 
 ## Off-Chain Stack
 
 | Component | Technology | Purpose |
 |---|---|---|
 | **SDK** | TypeScript (`@abhishek-vidhate/sss-token`) | Instruction building, PDA derivation, preset creation, error translation |
-| **CLI (TS)** | TypeScript (Commander.js) | Operator commands for Node.js environments |
-| **CLI (Rust)** | Rust (clap 4) | Native binary for CI/CD pipelines and operators |
-| **Backend** | Express + Zod + Winston | REST API with validation, rate limiting, API key auth |
+| **CLI** | Rust (clap 4) | Native binary; uses sss-core and sss-transfer-hook IDLs directly (not the SDK) |
+| **Backend** | Express + Zod + Winston | REST API with validation, rate limiting, API key auth; uses SDK |
 | **Docker** | docker-compose | Containerized backend deployment |

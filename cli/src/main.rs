@@ -38,14 +38,16 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize a new stablecoin
     Init {
+        #[arg(long, help = "Preset: 1, 2, 4 (or sss-1, sss-2, sss-4). Omit if using --config")]
+        preset: Option<String>,
+        #[arg(long, help = "Path to TOML config (alternative to preset/name/symbol)")]
+        config: Option<String>,
+        #[arg(long, help = "Path to mint keypair JSON. Omit to generate new keypair")]
+        mint: Option<String>,
         #[arg(long)]
-        preset: String,
-        #[arg(long, help = "Path to the mint keypair JSON file")]
-        mint: String,
+        name: Option<String>,
         #[arg(long)]
-        name: String,
-        #[arg(long)]
-        symbol: String,
+        symbol: Option<String>,
         #[arg(long, default_value = "")]
         uri: String,
         #[arg(long, default_value_t = 6)]
@@ -132,6 +134,32 @@ pub enum Commands {
     Fees {
         #[command(subcommand)]
         action: FeesAction,
+    },
+    /// List token holders for a mint
+    Holders {
+        #[arg(long)]
+        mint: String,
+        #[arg(long, help = "Minimum balance filter (base units)")]
+        min_balance: Option<u64>,
+    },
+    /// View audit log (transaction history for config PDA)
+    AuditLog {
+        #[arg(long)]
+        mint: String,
+        #[arg(long, help = "Filter by action (partial match)")]
+        action: Option<String>,
+        #[arg(long, default_value_t = 25, help = "Max entries")]
+        limit: usize,
+    },
+    /// Show stablecoin status (alias for info)
+    Status {
+        #[arg(long)]
+        mint: String,
+    },
+    /// Terminal UI for live monitoring
+    Tui {
+        #[arg(long, help = "Mint address to monitor (optional)")]
+        mint: Option<String>,
     },
 }
 
@@ -247,13 +275,24 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Init {
             preset,
+            config,
             mint,
             name,
             symbol,
             uri,
             decimals,
             supply_cap,
-        } => commands::init::run(&ctx, &preset, &mint, &name, &symbol, &uri, decimals, supply_cap)?,
+        } => commands::init::run(
+            &ctx,
+            preset.as_deref(),
+            config.as_deref(),
+            mint.as_deref(),
+            name.as_deref(),
+            symbol.as_deref(),
+            &uri,
+            decimals,
+            supply_cap,
+        )?,
         Commands::Mint { mint, to, amount } => {
             commands::mint::run(&ctx, &mint, &to, amount)?;
         }
@@ -329,6 +368,21 @@ async fn main() -> anyhow::Result<()> {
             }
             FeesAction::Show { mint } => commands::fees::show(&ctx, &mint)?,
         },
+        Commands::Holders { mint, min_balance } => {
+            commands::holders::run(&ctx, &mint, min_balance)?;
+        }
+        Commands::AuditLog {
+            mint,
+            action,
+            limit,
+        } => commands::audit_log::run(
+            &ctx,
+            &mint,
+            action.as_deref(),
+            limit,
+        )?,
+        Commands::Status { mint } => commands::info::run(&ctx, &mint)?,
+        Commands::Tui { mint } => commands::tui::run(&ctx, mint.as_deref())?,
     }
 
     Ok(())

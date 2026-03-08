@@ -24,3 +24,5 @@ anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 spl-token-2022 = { workspace = true }
 bytemuck = { workspace = true }
+hex = "0.4"
+pyth-solana-receiver-sdk = "0.6.1"

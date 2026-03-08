@@ -65,12 +65,24 @@ pub fn handler_initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Res
     require!(args.symbol.len() <= 10, SssError::SymbolTooLong);
     require!(args.uri.len() <= 200, SssError::UriTooLong);
 
+    let config_pda = ctx.accounts.config.key();
+    let mint = &ctx.accounts.mint;
+    require!(
+        mint.mint_authority.as_ref().map(|a| a == &config_pda).unwrap_or(false),
+        SssError::MintMismatch
+    );
+    require!(
+        mint.freeze_authority.as_ref().map(|a| a == &config_pda).unwrap_or(false),
+        SssError::MintMismatch
+    );
+    require!(mint.supply == 0, SssError::MintMismatch);
+
     let (default_perm_delegate, default_hook, default_frozen, default_fees) = match args.preset {
         1 => (true, false, false, false),
         2 => (true, true, true, false),
         3 => (true, false, false, false),
         4 => (true, true, true, true),
-        _ => unreachable!(),
+        _ => return Err(SssError::InvalidPreset.into()),
     };
 
     if let Some(bps) = args.transfer_fee_basis_points {
@@ -129,6 +141,7 @@ pub fn handler_initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Res
         supply_cap: args.supply_cap,
         name: args.name,
         symbol: args.symbol,
+        uri: args.uri,
         decimals: args.decimals,
     });
 

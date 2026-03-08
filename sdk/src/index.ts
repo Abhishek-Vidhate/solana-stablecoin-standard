@@ -32,6 +32,7 @@ export {
   createSss4MintTransaction,
 } from "./presets";
 export * as instructions from "./instructions";
+export * as oracle from "./oracle";
 
 import { SolanaStablecoin as _SSS } from "./client";
 export const SSS = _SSS;

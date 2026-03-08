@@ -5,6 +5,7 @@ import {
   Keypair,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
   sendAndConfirmTransaction,
   Connection,
   LAMPORTS_PER_SOL,
@@ -34,6 +35,7 @@ import {
 } from "@solana/spl-token-metadata";
 import { SssCore } from "../target/types/sss_core";
 import { SssTransferHook } from "../target/types/sss_transfer_hook";
+import { initReporter, reportTransaction } from "./reporter";
 
 export const CORE_PROGRAM_ID = new PublicKey(
   "CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei"
@@ -49,6 +51,16 @@ export const ROLE_PAUSER = 3;
 export const ROLE_BURNER = 4;
 export const ROLE_BLACKLISTER = 5;
 export const ROLE_SEIZER = 6;
+
+/** Call from test before() to enable transaction reporting. */
+export function initReportConnection(connection: Connection, cluster = "localnet") {
+  initReporter(connection, cluster);
+}
+
+/** Log a transaction for the report (only when REPORT=1). */
+export function reportTx(suite: string, test: string, instruction: string, signature: string) {
+  reportTransaction(suite, test, instruction, signature);
+}
 
 // ── PDA Derivation ──────────────────────────────────────────────────────
 
@@ -176,46 +188,23 @@ export async function grantRole(
 // ── Mint Creation ───────────────────────────────────────────────────────
 
 /**
- * Compute mint account space for Token-2022 with metadata embedded.
- * Token-2022 metadata pointer stores metadata directly on the mint.
+ * Create SSS-1 mint without MetadataPointer/metadata (matches CLI approach).
+ * Uses only PermanentDelegate. Core program stores name/symbol/uri in config.
  */
-function computeMintSpace(
-  extensions: ExtensionType[],
-  metadata: TokenMetadata
-): number {
-  const mintLen = getMintLen(extensions);
-  const metadataLen = pack(metadata).length;
-  // TYPE_SIZE(2) + LENGTH_SIZE(2) + metadata bytes
-  return mintLen + 2 + 2 + metadataLen;
-}
-
 export async function createSss1Mint(
   provider: AnchorProvider,
   payer: Keypair,
-  name: string,
-  symbol: string,
-  uri: string,
+  _name: string,
+  _symbol: string,
+  _uri: string,
   decimals: number
 ): Promise<Keypair> {
   const mint = Keypair.generate();
   const [configPda] = deriveConfigPda(mint.publicKey);
   const connection = provider.connection;
 
-  const extensions = [
-    ExtensionType.MetadataPointer,
-    ExtensionType.PermanentDelegate,
-  ];
-
-  const metadata: TokenMetadata = {
-    mint: mint.publicKey,
-    name,
-    symbol,
-    uri,
-    additionalMetadata: [],
-    updateAuthority: payer.publicKey,
-  };
-
-  const space = computeMintSpace(extensions, metadata);
+  const extensions = [ExtensionType.PermanentDelegate];
+  const space = getMintLen(extensions);
   const lamports = await connection.getMinimumBalanceForRentExemption(space);
 
   const tx = new Transaction().add(
@@ -226,12 +215,6 @@ export async function createSss1Mint(
       lamports,
       programId: TOKEN_2022_PROGRAM_ID,
     }),
-    createInitializeMetadataPointerInstruction(
-      mint.publicKey,
-      payer.publicKey,
-      mint.publicKey, // metadata stored on mint itself
-      TOKEN_2022_PROGRAM_ID
-    ),
     createInitializePermanentDelegateInstruction(
       mint.publicKey,
       configPda,
@@ -240,20 +223,10 @@ export async function createSss1Mint(
     createInitializeMint2Instruction(
       mint.publicKey,
       decimals,
-      payer.publicKey, // initial mint authority
-      payer.publicKey, // initial freeze authority
+      payer.publicKey,
+      payer.publicKey,
       TOKEN_2022_PROGRAM_ID
     ),
-    createInitializeMetadataInstruction({
-      programId: TOKEN_2022_PROGRAM_ID,
-      mint: mint.publicKey,
-      metadata: mint.publicKey,
-      mintAuthority: payer.publicKey,
-      name,
-      symbol,
-      uri,
-      updateAuthority: payer.publicKey,
-    }),
     createSetAuthorityInstruction(
       mint.publicKey,
       payer.publicKey,
@@ -276,12 +249,16 @@ export async function createSss1Mint(
   return mint;
 }
 
+/**
+ * Create SSS-2 mint without MetadataPointer/metadata (matches CLI approach).
+ * Extensions: PermanentDelegate, TransferHook, DefaultAccountState.
+ */
 export async function createSss2Mint(
   provider: AnchorProvider,
   payer: Keypair,
-  name: string,
-  symbol: string,
-  uri: string,
+  _name: string,
+  _symbol: string,
+  _uri: string,
   decimals: number
 ): Promise<Keypair> {
   const mint = Keypair.generate();
@@ -289,22 +266,11 @@ export async function createSss2Mint(
   const connection = provider.connection;
 
   const extensions = [
-    ExtensionType.MetadataPointer,
     ExtensionType.PermanentDelegate,
     ExtensionType.TransferHook,
     ExtensionType.DefaultAccountState,
   ];
-
-  const metadata: TokenMetadata = {
-    mint: mint.publicKey,
-    name,
-    symbol,
-    uri,
-    additionalMetadata: [],
-    updateAuthority: payer.publicKey,
-  };
-
-  const space = computeMintSpace(extensions, metadata);
+  const space = getMintLen(extensions);
   const lamports = await connection.getMinimumBalanceForRentExemption(space);
 
   const tx = new Transaction().add(
@@ -315,12 +281,6 @@ export async function createSss2Mint(
       lamports,
       programId: TOKEN_2022_PROGRAM_ID,
     }),
-    createInitializeMetadataPointerInstruction(
-      mint.publicKey,
-      payer.publicKey,
-      mint.publicKey,
-      TOKEN_2022_PROGRAM_ID
-    ),
     createInitializePermanentDelegateInstruction(
       mint.publicKey,
       configPda,
@@ -344,16 +304,6 @@ export async function createSss2Mint(
       payer.publicKey,
       TOKEN_2022_PROGRAM_ID
     ),
-    createInitializeMetadataInstruction({
-      programId: TOKEN_2022_PROGRAM_ID,
-      mint: mint.publicKey,
-      metadata: mint.publicKey,
-      mintAuthority: payer.publicKey,
-      name,
-      symbol,
-      uri,
-      updateAuthority: payer.publicKey,
-    }),
     createSetAuthorityInstruction(
       mint.publicKey,
       payer.publicKey,
@@ -376,38 +326,50 @@ export async function createSss2Mint(
   return mint;
 }
 
-export async function createSss4Mint(
+/**
+ * Raw ConfidentialTransferMint init instruction.
+ * Layout: discriminator(1) = 27, sub-ix(1) = 0, authority(32), autoApprove(1), auditorPk(32)
+ */
+function createConfidentialTransferMintInstruction(
+  mint: PublicKey,
+  authority: PublicKey,
+  autoApprove: boolean
+): TransactionInstruction {
+  const data = Buffer.alloc(67);
+  data.writeUInt8(27, 0); // ConfidentialTransfer extension discriminator
+  data.writeUInt8(0, 1); // InitializeMint sub-instruction
+  authority.toBuffer().copy(data, 2);
+  data.writeUInt8(autoApprove ? 1 : 0, 34);
+  Buffer.alloc(32).copy(data, 35); // Auditor ElGamal pubkey — all zeros (no auditor)
+
+  return new TransactionInstruction({
+    programId: TOKEN_2022_PROGRAM_ID,
+    keys: [{ pubkey: mint, isSigner: false, isWritable: true }],
+    data,
+  });
+}
+
+/**
+ * Create SSS-3 mint without MetadataPointer/metadata (matches CLI approach).
+ * Extensions: PermanentDelegate, ConfidentialTransferMint.
+ */
+export async function createSss3Mint(
   provider: AnchorProvider,
   payer: Keypair,
-  name: string,
-  symbol: string,
-  uri: string,
-  decimals: number,
-  feeBps: number,
-  maxFee: bigint
+  _name: string,
+  _symbol: string,
+  _uri: string,
+  decimals: number
 ): Promise<Keypair> {
   const mint = Keypair.generate();
   const [configPda] = deriveConfigPda(mint.publicKey);
   const connection = provider.connection;
 
   const extensions = [
-    ExtensionType.MetadataPointer,
     ExtensionType.PermanentDelegate,
-    ExtensionType.TransferHook,
-    ExtensionType.DefaultAccountState,
-    ExtensionType.TransferFeeConfig,
+    ExtensionType.ConfidentialTransferMint,
   ];
-
-  const metadata: TokenMetadata = {
-    mint: mint.publicKey,
-    name,
-    symbol,
-    uri,
-    additionalMetadata: [],
-    updateAuthority: payer.publicKey,
-  };
-
-  const space = computeMintSpace(extensions, metadata);
+  const space = getMintLen(extensions);
   const lamports = await connection.getMinimumBalanceForRentExemption(space);
 
   const tx = new Transaction().add(
@@ -418,12 +380,80 @@ export async function createSss4Mint(
       lamports,
       programId: TOKEN_2022_PROGRAM_ID,
     }),
-    createInitializeMetadataPointerInstruction(
+    createInitializePermanentDelegateInstruction(
       mint.publicKey,
-      payer.publicKey,
-      mint.publicKey,
+      configPda,
       TOKEN_2022_PROGRAM_ID
     ),
+    createConfidentialTransferMintInstruction(
+      mint.publicKey,
+      configPda,
+      true
+    ),
+    createInitializeMint2Instruction(
+      mint.publicKey,
+      decimals,
+      payer.publicKey,
+      payer.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    ),
+    createSetAuthorityInstruction(
+      mint.publicKey,
+      payer.publicKey,
+      AuthorityType.MintTokens,
+      configPda,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    ),
+    createSetAuthorityInstruction(
+      mint.publicKey,
+      payer.publicKey,
+      AuthorityType.FreezeAccount,
+      configPda,
+      [],
+      TOKEN_2022_PROGRAM_ID
+    )
+  );
+
+  await sendAndConfirmTransaction(connection, tx, [payer, mint]);
+  return mint;
+}
+
+/**
+ * Create SSS-4 mint without MetadataPointer/metadata (matches CLI approach).
+ * Extensions: PermanentDelegate, TransferHook, DefaultAccountState, TransferFeeConfig.
+ */
+export async function createSss4Mint(
+  provider: AnchorProvider,
+  payer: Keypair,
+  _name: string,
+  _symbol: string,
+  _uri: string,
+  decimals: number,
+  feeBps: number,
+  maxFee: bigint
+): Promise<Keypair> {
+  const mint = Keypair.generate();
+  const [configPda] = deriveConfigPda(mint.publicKey);
+  const connection = provider.connection;
+
+  const extensions = [
+    ExtensionType.PermanentDelegate,
+    ExtensionType.TransferHook,
+    ExtensionType.DefaultAccountState,
+    ExtensionType.TransferFeeConfig,
+  ];
+  const space = getMintLen(extensions);
+  const lamports = await connection.getMinimumBalanceForRentExemption(space);
+
+  const tx = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mint.publicKey,
+      space,
+      lamports,
+      programId: TOKEN_2022_PROGRAM_ID,
+    }),
     createInitializePermanentDelegateInstruction(
       mint.publicKey,
       configPda,
@@ -455,16 +485,6 @@ export async function createSss4Mint(
       payer.publicKey,
       TOKEN_2022_PROGRAM_ID
     ),
-    createInitializeMetadataInstruction({
-      programId: TOKEN_2022_PROGRAM_ID,
-      mint: mint.publicKey,
-      metadata: mint.publicKey,
-      mintAuthority: payer.publicKey,
-      name,
-      symbol,
-      uri,
-      updateAuthority: payer.publicKey,
-    }),
     createSetAuthorityInstruction(
       mint.publicKey,
       payer.publicKey,

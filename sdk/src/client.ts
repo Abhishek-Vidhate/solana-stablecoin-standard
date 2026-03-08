@@ -273,6 +273,13 @@ export class SolanaStablecoin {
   // ── Write Operations ──────────────────────────────────────────────────
 
   async mintTokens(params: MintParams): Promise<TransactionSignature> {
+    const info = await this.getInfo();
+    if (info.hasOracleFeed && !params.priceUpdate) {
+      throw new Error(
+        "Oracle is configured for this mint. Pass priceUpdate (Pyth PriceUpdateV2 account) in MintParams."
+      );
+    }
+
     const ata = getAssociatedTokenAddressSync(
       this.mint,
       params.recipient,
@@ -302,6 +309,7 @@ export class SolanaStablecoin {
       mint: this.mint,
       to: ata,
       amount: params.amount,
+      priceUpdate: params.priceUpdate ?? undefined,
     });
     tx.add(ix);
 
@@ -627,6 +635,7 @@ function parseConfig(
     enableTransferHook: raw.enableTransferHook !== 0,
     defaultAccountFrozen: raw.defaultAccountFrozen !== 0,
     adminCount: raw.adminCount,
+    hasOracleFeed: (raw.hasOracleFeed ?? raw.has_oracle_feed ?? 0) !== 0,
     transferFeeBasisPoints: raw.transferFeeBasisPoints,
     maximumFee: new BN(raw.maximumFee),
     hasPendingAuthority: raw.hasPendingAuthority !== 0,

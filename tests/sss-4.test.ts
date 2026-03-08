@@ -9,6 +9,7 @@ import {
   airdropSol,
   createSss4Mint,
   createTokenAccount,
+  CORE_PROGRAM_ID,
   deriveConfigPda,
   deriveRolePda,
   deriveExtraAccountMetasPda,
@@ -16,6 +17,8 @@ import {
   grantRole,
   fetchConfig,
   getTokenBalance,
+  initReportConnection,
+  reportTx,
   HOOK_PROGRAM_ID,
   ROLE_ADMIN,
   ROLE_MINTER,
@@ -47,6 +50,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
   const MAX_FEE = BigInt(1_000_000); // 1 token (6 decimals)
 
   before(async () => {
+    initReportConnection(connection);
     await airdropSol(connection, payer.publicKey, 100);
     await airdropSol(connection, minter.publicKey, 5);
     await airdropSol(connection, freezer.publicKey, 5);
@@ -70,7 +74,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
   it("initializes SSS-4 config with transfer fees", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
 
-    await coreProgram.methods
+    const initSig = await coreProgram.methods
       .initialize({
         preset: 4,
         name: "Fee USD",
@@ -94,6 +98,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
         systemProgram: SystemProgram.programId,
       })
       .rpc();
+    reportTx("SSS-4", "initializes SSS-4 config with transfer fees", "initialize", initSig);
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.preset).to.equal(4);
@@ -106,7 +111,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
   it("initializes extra account metas", async () => {
     const [extraMetasPda] = deriveExtraAccountMetasPda(mint.publicKey);
 
-    await hookProgram.methods
+    const hookSig = await hookProgram.methods
       .initializeExtraAccountMetas()
       .accountsPartial({
         payer: payer.publicKey,
@@ -115,6 +120,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
         systemProgram: SystemProgram.programId,
       })
       .rpc();
+    reportTx("SSS-4", "initializes extra account metas", "initialize_extra_account_metas", hookSig);
 
     const accountInfo = await connection.getAccountInfo(extraMetasPda);
     expect(accountInfo).to.not.be.null;
@@ -168,7 +174,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
 
     // Mint tokens to user A
     const [minterRolePda] = deriveRolePda(configPda, minter.publicKey, ROLE_MINTER);
-    await coreProgram.methods
+    const mintSig = await coreProgram.methods
       .mintTokens(new BN(10_000_000_000)) // 10K tokens
       .accountsPartial({
         minter: minter.publicKey,
@@ -176,10 +182,14 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
         minterRole: minterRolePda,
         mint: mint.publicKey,
         to: userAAta,
+        priceUpdate: CORE_PROGRAM_ID,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
       })
       .signers([minter])
       .rpc();
+    reportTx("SSS-4", "grants roles and prepares accounts", "mint_tokens", mintSig);
+
+    await connection.confirmTransaction(mintSig, "confirmed");
 
     const balance = await getTokenBalance(connection, userAAta);
     expect(balance.toString()).to.equal("10000000000");
@@ -191,7 +201,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
     const newBps = 200; // 2%
     const newMaxFee = new BN(2_000_000); // 2 tokens
 
-    await coreProgram.methods
+    const feeSig = await coreProgram.methods
       .updateTransferFee(newBps, newMaxFee)
       .accountsPartial({
         admin: payer.publicKey,
@@ -201,6 +211,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
         tokenProgram: TOKEN_2022_PROGRAM_ID,
       })
       .rpc();
+    reportTx("SSS-4", "updates transfer fee", "update_transfer_fee", feeSig);
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.transferFeeBasisPoints).to.equal(newBps);
@@ -211,7 +222,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
 
     // withdraw_withheld collects fees from source accounts passed via remainingAccounts
-    await coreProgram.methods
+    const withdrawSig = await coreProgram.methods
       .withdrawWithheld()
       .accountsPartial({
         admin: payer.publicKey,
@@ -225,6 +236,7 @@ describe("SSS-4 Stablecoin (Transfer Fees)", () => {
         { pubkey: userAAta, isWritable: true, isSigner: false },
       ])
       .rpc();
+    reportTx("SSS-4", "withdraws withheld fees", "withdraw_withheld", withdrawSig);
   });
 
   it("rejects fee update from non-SSS-4 preset", async () => {

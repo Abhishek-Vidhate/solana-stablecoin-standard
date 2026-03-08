@@ -76,6 +76,13 @@ pub mod sss_core {
         instructions::admin::update_minter::handler_update_minter(ctx, new_quota)
     }
 
+    pub fn update_oracle(
+        ctx: Context<UpdateOracle>,
+        oracle_feed_id: Option<[u8; 32]>,
+    ) -> Result<()> {
+        instructions::admin::update_oracle::handler_update_oracle(ctx, oracle_feed_id)
+    }
+
     pub fn update_transfer_fee(
         ctx: Context<UpdateTransferFee>,
         new_basis_points: u16,

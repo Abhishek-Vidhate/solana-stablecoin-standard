@@ -6,6 +6,7 @@ use crate::error::SssError;
 use crate::events::TokensSeized;
 use crate::state::{Role, RoleAccount, StablecoinConfig};
 
+/// Seize tokens via permanent delegate. Requires PermanentDelegate extension (SSS-1/2/3/4).
 #[derive(Accounts)]
 pub struct Seize<'info> {
     pub seizer: Signer<'info>,

@@ -56,21 +56,26 @@ export function buildMintTokensIx(
     mint: PublicKey;
     to: PublicKey;
     amount: BN;
+    priceUpdate?: PublicKey | null;
   }
 ): Promise<TransactionInstruction> {
   const [configPda] = deriveConfigPda(opts.mint);
   const [minterRole] = deriveRolePda(configPda, opts.minter, Role.Minter);
 
+  const accounts: Record<string, PublicKey> = {
+    minter: opts.minter,
+    config: configPda,
+    minterRole,
+    mint: opts.mint,
+    to: opts.to,
+    // Option<Account>: pass program ID when no oracle; program treats it as None
+    priceUpdate: opts.priceUpdate ?? program.programId,
+    tokenProgram: TOKEN_2022_PROGRAM_ID,
+  };
+
   return m(program)
     .mintTokens(opts.amount)
-    .accounts({
-      minter: opts.minter,
-      config: configPda,
-      minterRole,
-      mint: opts.mint,
-      to: opts.to,
-      tokenProgram: TOKEN_2022_PROGRAM_ID,
-    })
+    .accounts(accounts)
     .instruction();
 }
 
@@ -365,6 +370,30 @@ export function buildUpdateTransferFeeIx(
       adminRole,
       mint: opts.mint,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
+    })
+    .instruction();
+}
+
+export function buildUpdateOracleIx(
+  program: CoreProgram,
+  opts: {
+    admin: PublicKey;
+    configPda: PublicKey;
+    oracleFeedId: number[] | null;
+  }
+): Promise<TransactionInstruction> {
+  const [adminRole] = deriveRolePda(opts.configPda, opts.admin, Role.Admin);
+
+  const feedId = opts.oracleFeedId
+    ? (new Uint8Array(opts.oracleFeedId) as unknown as [number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number, number])
+    : null;
+
+  return m(program)
+    .updateOracle(feedId)
+    .accounts({
+      admin: opts.admin,
+      config: opts.configPda,
+      adminRole,
     })
     .instruction();
 }

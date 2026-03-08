@@ -46,6 +46,8 @@ pub fn handler_update_transfer_fee(
     require!(config.mint == ctx.accounts.mint.key(), SssError::MintMismatch);
     let mint_key = ctx.accounts.mint.key();
     let bump = config.bump;
+    let old_bps = config.transfer_fee_basis_points;
+    let old_max = config.maximum_fee;
     drop(config);
 
     let signer_seeds: &[&[&[u8]]] = &[&[SSS_CONFIG_SEED, mint_key.as_ref(), &[bump]]];
@@ -77,6 +79,8 @@ pub fn handler_update_transfer_fee(
     emit!(ConfigUpdated {
         config: config_key,
         field: "transfer_fee".to_string(),
+        old_value: Some(format!("{}bps,{}", old_bps, old_max)),
+        new_value: Some(format!("{}bps,{}", new_basis_points, new_maximum_fee)),
         updater: ctx.accounts.admin.key(),
     });
 

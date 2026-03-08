@@ -40,4 +40,12 @@ pub enum SssError {
     NoPendingAuthority,
     #[msg("Signer does not match the pending authority")]
     UnauthorizedAcceptor,
+    #[msg("Oracle feed not configured")]
+    OracleFeedNotConfigured,
+    #[msg("Price update account required when oracle is configured")]
+    PriceUpdateRequired,
+    #[msg("Oracle feed ID mismatch")]
+    OracleFeedIdMismatch,
+    #[msg("Price too old or stale")]
+    PriceTooOld,
 }

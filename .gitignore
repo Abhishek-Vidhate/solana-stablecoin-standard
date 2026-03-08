@@ -9,9 +9,14 @@ wallets/
 .cursor/
 reference/
 
+# Test report trigger (created by npm run test:report)
+.report-requested
+.report-cb-ran
+
 # Build / generated
 sdk/dist
 *.tsbuildinfo
+frontend/.next
 
 # Env and logs
 .env
@@ -19,5 +24,16 @@ sdk/dist
 !.env.example
 *.log
 
+# Generated test reports (keep README and example)
+reports/*.md
+!reports/README.md
+!reports/test-report-EXAMPLE.md
+reports/.run-called
+reports/.setup-loaded
+reports/.patch-verified
+reports/debug-env.json
+
 # IDE
 .vscode/
+docs/BOUNTY_IMPLEMENTATION_REPORT.md
+docs/MANUAL_TESTING_GUIDE.md

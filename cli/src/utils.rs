@@ -124,6 +124,7 @@ pub struct ParsedConfig {
     pub supply_cap: u64,
     pub total_minted: u64,
     pub total_burned: u64,
+    #[allow(dead_code)]
     pub bump: u8,
     pub name: String,
     pub symbol: String,
