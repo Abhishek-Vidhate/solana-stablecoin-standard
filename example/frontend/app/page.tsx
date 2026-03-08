@@ -29,6 +29,10 @@ export default function Dashboard() {
           <strong>Blacklist</strong>
           <p style={{ margin: "0.5rem 0 0", fontSize: "0.9rem", color: "#666" }}>SSS-2/4 compliance</p>
         </a>
+        <a href="/confidential" style={{ padding: "1.5rem", border: "1px solid #ddd", borderRadius: "8px", textDecoration: "none", color: "inherit" }}>
+          <strong>Confidential</strong>
+          <p style={{ margin: "0.5rem 0 0", fontSize: "0.9rem", color: "#666" }}>SSS-3 privacy-preserving transfers</p>
+        </a>
       </div>
     </div>
   );

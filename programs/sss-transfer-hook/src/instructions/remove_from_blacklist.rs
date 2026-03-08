@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+#[cfg(feature = "cu-profile")]
+use anchor_lang::solana_program::log::sol_log_compute_units;
 
 use crate::constants::*;
 use crate::events::BlacklistRemoved;
@@ -27,6 +29,8 @@ pub struct RemoveFromBlacklist<'info> {
 }
 
 pub fn handler_remove_from_blacklist(ctx: Context<RemoveFromBlacklist>) -> Result<()> {
+    #[cfg(feature = "cu-profile")]
+    sol_log_compute_units();
     let mint_key = ctx.accounts.blacklist_entry.mint;
 
     verify_blacklister_for_mint(

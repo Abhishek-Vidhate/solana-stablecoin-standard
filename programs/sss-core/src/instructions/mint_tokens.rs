@@ -2,6 +2,8 @@
 //! FUTURE: Switchboard V2 — add oracle_type in config and CPI to Switchboard feed when configured.
 
 use anchor_lang::prelude::*;
+#[cfg(feature = "cu-profile")]
+use anchor_lang::solana_program::log::sol_log_compute_units;
 use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterface};
 use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
 
@@ -52,6 +54,8 @@ pub struct MintTokens<'info> {
 }
 
 pub fn handler_mint_tokens(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
+    #[cfg(feature = "cu-profile")]
+    sol_log_compute_units();
     require!(amount > 0, SssError::ZeroAmount);
 
     let minter_role = &mut ctx.accounts.minter_role;

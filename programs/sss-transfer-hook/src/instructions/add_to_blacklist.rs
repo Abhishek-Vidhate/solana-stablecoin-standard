@@ -1,4 +1,6 @@
 use anchor_lang::prelude::*;
+#[cfg(feature = "cu-profile")]
+use anchor_lang::solana_program::log::sol_log_compute_units;
 
 use crate::constants::*;
 use crate::error::TransferHookError;
@@ -34,6 +36,8 @@ pub struct AddToBlacklist<'info> {
 }
 
 pub fn handler_add_to_blacklist(ctx: Context<AddToBlacklist>, reason: String) -> Result<()> {
+    #[cfg(feature = "cu-profile")]
+    sol_log_compute_units();
     require!(reason.len() <= MAX_REASON_LEN, TransferHookError::ReasonTooLong);
 
     verify_blacklister_for_mint(

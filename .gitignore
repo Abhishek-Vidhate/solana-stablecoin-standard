@@ -16,7 +16,7 @@ reference/
 # Build / generated
 sdk/dist
 *.tsbuildinfo
-frontend/.next
+**/.next
 
 # Env and logs
 .env

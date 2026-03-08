@@ -260,13 +260,67 @@ sequenceDiagram
     T22-->>Core: Transfer complete
 ```
 
+## Compute Optimization Techniques
+
+The following techniques are applied to minimize CU consumption:
+
+### Data Layout & Serialization
+
+| Technique | Implementation |
+|-----------|----------------|
+| **Zero-copy config** | `StablecoinConfig` uses `#[account(zero_copy(unsafe))]` and `AccountLoader` — no Borsh heap allocation on reads. |
+| **repr(packed)** | Zero-copy struct avoids padding between heterogeneous fields (`u8` next to `u64`); safe on Solana BPF/SBF. |
+| **Compact layouts** | Minimal integer sizes (u8 for booleans/flags), fixed arrays; no Vecs in hot paths. |
+| **In-place writes** | `load_mut()` / `drop()` pattern — only mutated bytes written, no full re-serialize. |
+
+### Accounts & Hot Paths
+
+| Technique | Implementation |
+|-----------|----------------|
+| **Transfer hook lean** | `transfer_hook` uses `UncheckedAccount` only; `data_is_empty()` check, no deserialization. |
+| **Minimal account set** | Only necessary accounts passed per instruction; no unused accounts. |
+| **Blacklister verify** | PDA re-derivation + key match (no CPI to sss-core for role check). |
+
+### Build & Tooling
+
+| Technique | Implementation |
+|-----------|----------------|
+| **Release profile** | Workspace `[profile.release]`: `opt-level=3`, `lto="fat"`, `codegen-units=1`, `overflow-checks=true`. |
+| **cu-profile** | Feature-gated `sol_log_compute_units()` in hot/admin instructions; compiles out by default. |
+
+### Constraint Usage
+
+- **Selective constraints** — Only enforce what is needed; audit performed; no redundant checks.
+- **Seeds over constraints** — PDAs validated via seeds where possible; constraints only when account is not PDA-derived.
+
+---
+
+## CU Benchmark (from `npm run test:report`)
+
+Measured on localnet with optimized release build:
+
+| Instruction | Min CU | Max CU | Avg CU |
+|-------------|--------|--------|--------|
+| `initialize` | 17,254 | 30,974 | 21,831 |
+| `mint_tokens` | 11,819 | 15,130 | 13,556 |
+| `burn_tokens` | 11,121 | 11,121 | 11,121 |
+| `seize` | 12,770 | 12,770 | 12,770 |
+| `initialize_extra_account_metas` | 10,678 | 10,678 | 10,678 |
+| `add_to_blacklist` | 18,378 | 18,378 | 18,378 |
+| `remove_from_blacklist` | 13,653 | 13,653 | 13,653 |
+| `update_transfer_fee` | 12,888 | 12,888 | 12,888 |
+
+*Generate reports with `npm run test:report`; output in `reports/test-report-<timestamp>.md`.*
+
+---
+
 ## Differentiators
 
 Compared to reference implementations (PR#6, PR#19), this SSS implementation adds:
 
 | Differentiator | Description |
 |---|---|
-| **Zero-copy config** | `StablecoinConfig` uses `AccountLoader` for ~80–90% CU reduction on reads; competitors use regular `Account`. |
+| **Zero-copy config** | `StablecoinConfig` uses `AccountLoader` for significant CU reduction on reads; competitors use regular `Account`. |
 | **SSS-4 (Transfer Fees)** | Full preset 4 support: `TransferFeeConfig`, `update_transfer_fee`, `withdraw_withheld` in program, SDK, and CLI. |
 | **Two-step authority transfer** | `propose_authority` / `accept_authority` prevents accidental lockout; competitors use single-step. |
 | **Sender blacklist fix** | Transfer hook derives sender PDA from **owner** in account data, not delegate; fixes delegate bypass (C-1). |

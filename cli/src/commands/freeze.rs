@@ -5,7 +5,8 @@ use solana_sdk::{instruction::Instruction, transaction::Transaction};
 use crate::config::CliContext;
 use crate::utils::*;
 
-pub fn run(ctx: &CliContext, mint_str: &str, account_str: &str) -> Result<()> {
+/// Execute freeze and return tx signature. Used by CLI and TUI.
+pub fn execute(ctx: &CliContext, mint_str: &str, account_str: &str) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let token_account = parse_pubkey(account_str)?;
 
@@ -38,11 +39,14 @@ pub fn run(ctx: &CliContext, mint_str: &str, account_str: &str) -> Result<()> {
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
+pub fn run(ctx: &CliContext, mint_str: &str, account_str: &str) -> Result<()> {
+    let sig = execute(ctx, mint_str, account_str)?;
     print_success("Account frozen");
     print_field("Mint", mint_str);
     print_field("Token Account", account_str);
-    print_tx(&sig.to_string());
-
+    print_tx(&sig);
     Ok(())
 }

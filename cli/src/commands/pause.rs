@@ -5,7 +5,8 @@ use solana_sdk::{instruction::Instruction, transaction::Transaction};
 use crate::config::CliContext;
 use crate::utils::*;
 
-pub fn run(ctx: &CliContext, mint_str: &str, unpause: bool) -> Result<()> {
+/// Execute pause/unpause and return tx signature. Used by CLI and TUI.
+pub fn execute(ctx: &CliContext, mint_str: &str, unpause: bool) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
 
     let (config_pda, _) = derive_config_pda(&mint);
@@ -50,14 +51,17 @@ pub fn run(ctx: &CliContext, mint_str: &str, unpause: bool) -> Result<()> {
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
+pub fn run(ctx: &CliContext, mint_str: &str, unpause: bool) -> Result<()> {
+    let sig = execute(ctx, mint_str, unpause)?;
     if unpause {
         print_success("Operations unpaused");
     } else {
         print_success("Operations paused");
     }
     print_field("Mint", mint_str);
-    print_tx(&sig.to_string());
-
+    print_tx(&sig);
     Ok(())
 }

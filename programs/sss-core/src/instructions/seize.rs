@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
+#[cfg(feature = "cu-profile")]
+use anchor_lang::solana_program::log::sol_log_compute_units;
 
 use crate::constants::*;
 use crate::error::SssError;
@@ -53,6 +55,8 @@ pub fn handler_seize<'info>(
     ctx: Context<'_, '_, '_, 'info, Seize<'info>>,
     amount: u64,
 ) -> Result<()> {
+    #[cfg(feature = "cu-profile")]
+    sol_log_compute_units();
     require!(amount > 0, SssError::ZeroAmount);
 
     let config = ctx.accounts.config.load()?;

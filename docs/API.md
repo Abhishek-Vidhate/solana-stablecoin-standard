@@ -229,6 +229,59 @@ curl -X POST http://localhost:3000/operations/seize \
   }'
 ```
 
+#### `POST /operations/fees/update`
+
+Update transfer fee (SSS-4 only). Requires Admin role.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `mint` | string (Pubkey) | Yes | Mint address |
+| `basisPoints` | number | Yes | Fee in basis points (0–10000, e.g. 10 = 0.10%) |
+| `maximumFee` | string \| number | Yes | Maximum fee in base units |
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:3000/operations/fees/update \
+  -H "Content-Type: application/json" \
+  -H "X-API-KEY: your-api-key" \
+  -d '{
+    "mint": "7xKL...abc",
+    "basisPoints": 10,
+    "maximumFee": "1000000"
+  }'
+```
+
+**Response:** `{ "success": true, "signature": "..." }`
+
+#### `POST /operations/fees/withdraw`
+
+Withdraw withheld transfer fees to a destination (SSS-4 only). Requires Admin role.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|---|---|:---:|---|
+| `mint` | string (Pubkey) | Yes | Mint address |
+| `destination` | string (Pubkey) | Yes | Token account to receive withdrawn fees |
+| `sources` | array (Pubkey) | No | Optional token accounts to withdraw from; if omitted, withdraws from all |
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:3000/operations/fees/withdraw \
+  -H "Content-Type: application/json" \
+  -H "X-API-KEY: your-api-key" \
+  -d '{
+    "mint": "7xKL...abc",
+    "destination": "9GHI...uvw"
+  }'
+```
+
+**Response:** `{ "success": true, "signature": "..." }`
+
 ---
 
 ### Compliance

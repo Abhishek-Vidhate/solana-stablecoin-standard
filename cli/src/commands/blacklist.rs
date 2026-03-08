@@ -6,7 +6,8 @@ use solana_sdk::{instruction::Instruction, transaction::Transaction};
 use crate::config::CliContext;
 use crate::utils::*;
 
-pub fn add(ctx: &CliContext, mint_str: &str, address_str: &str, reason: &str) -> Result<()> {
+/// Execute add to blacklist and return tx signature. Used by CLI and TUI.
+pub fn add_execute(ctx: &CliContext, mint_str: &str, address_str: &str, reason: &str) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let address = parse_pubkey(address_str)?;
 
@@ -44,17 +45,21 @@ pub fn add(ctx: &CliContext, mint_str: &str, address_str: &str, reason: &str) ->
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
+pub fn add(ctx: &CliContext, mint_str: &str, address_str: &str, reason: &str) -> Result<()> {
+    let sig = add_execute(ctx, mint_str, address_str, reason)?;
     print_success("Address added to blacklist");
     print_field("Mint", mint_str);
     print_field("Address", address_str);
     print_field("Reason", reason);
-    print_tx(&sig.to_string());
-
+    print_tx(&sig);
     Ok(())
 }
 
-pub fn remove(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<()> {
+/// Execute remove from blacklist and return tx signature. Used by CLI and TUI.
+pub fn remove_execute(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let address = parse_pubkey(address_str)?;
 
@@ -87,12 +92,15 @@ pub fn remove(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<()>
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
+pub fn remove(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<()> {
+    let sig = remove_execute(ctx, mint_str, address_str)?;
     print_success("Address removed from blacklist");
     print_field("Mint", mint_str);
     print_field("Address", address_str);
-    print_tx(&sig.to_string());
-
+    print_tx(&sig);
     Ok(())
 }
 

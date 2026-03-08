@@ -106,7 +106,10 @@ cargo build -p sss-cli
 sss-token init --preset 2 --name "Regulated USD" --symbol "rUSD" --decimals 6
 export SSS_MINT=<mint_address>
 
-# Operate
+# Interactive TUI (monitoring + operations)
+sss-token tui --mint $SSS_MINT   # Tab: Operations (mint/burn/freeze/thaw/pause/unpause/seize), Compliance (blacklist, roles)
+
+# Operate (CLI)
 sss-token mint --mint $SSS_MINT --to <RECIPIENT> --amount 1000000000
 sss-token freeze --mint $SSS_MINT --account <TOKEN_ACCOUNT>
 sss-token thaw --mint $SSS_MINT --account <TOKEN_ACCOUNT>
@@ -155,11 +158,13 @@ programs/
   sss-core/          # Core stablecoin program (Anchor)
   sss-transfer-hook/ # Transfer hook compliance program (Anchor)
 sdk/                 # TypeScript SDK (@abhishek-vidhate/sss-token)
-cli/                 # Rust CLI (sss-token, clap)
+cli/                 # Rust CLI (sss-token, clap) — includes interactive TUI
 backend/             # Express REST API
 tests/               # Integration tests (ts-mocha)
 trident-tests/       # Trident fuzz + proptest
 docs/                # Documentation
+example/
+  frontend/          # Next.js web UI (optional demo; uses SDK + backend API)
 ```
 
 ## Documentation

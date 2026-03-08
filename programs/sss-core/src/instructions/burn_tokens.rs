@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
+#[cfg(feature = "cu-profile")]
+use anchor_lang::solana_program::log::sol_log_compute_units;
 
 use crate::constants::*;
 use crate::error::SssError;
@@ -41,6 +43,8 @@ pub struct BurnTokens<'info> {
 }
 
 pub fn handler_burn_tokens(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
+    #[cfg(feature = "cu-profile")]
+    sol_log_compute_units();
     require!(amount > 0, SssError::ZeroAmount);
 
     let config_info = ctx.accounts.config.to_account_info();

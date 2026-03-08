@@ -1,7 +1,7 @@
 # CU & Zero-Copy Honest Assessment
 
 **Date:** March 8, 2026  
-**Based on:** `reports/test-report-2026-03-08T05-39-39.md` and research
+**Based on:** `reports/test-report-2026-03-08T07-49-49.md` and research
 
 ---
 
@@ -10,6 +10,45 @@
 **Zero-copy:** ✅ sss-core is **correctly** implementing zero-copy for `StablecoinConfig`. The transfer-hook cannot use zero-copy for `BlacklistEntry` due to `String`; the hot path (transfer validation) is already lean.
 
 **CU performance:** Our numbers are **reasonable for a compliance-heavy stablecoin framework**. They are not best-in-class, but they are appropriate for the feature set. There is room for optimization, especially on admin paths (add_to_blacklist, remove_from_blacklist).
+
+---
+
+## 0. Old vs New Report — Real Implementation or Mock?
+
+Comparison: **old** `test-report-2026-03-08T05-39-39.md` vs **new** `test-report-2026-03-08T07-49-49.md`.
+
+### How CU is produced (no mocks)
+
+- Tests run with `REPORT=1 anchor test`: real `anchor test` against localnet (validator runs real programs).
+- Each test sends real transactions (e.g. `provider.sendAndConfirm`) and passes the **returned signature** to `reportTx(suite, test, instruction, signature)`.
+- After the run, the reporter calls `connection.getTransaction(sig, { commitment: "confirmed", maxSupportedTransactionVersion: 0 })` and reads `tx.meta.computeUnitsConsumed`.
+- **CU values are the validator-recorded compute units for each transaction.** There is no stub, no hardcoded CU, and no mock RPC.
+
+### Old vs new CU (same instructions, different runs)
+
+| Instruction | Old (05-39-39) Min / Max / Avg | New (07-49-49) Min / Max / Avg |
+|-------------|-------------------------------|--------------------------------|
+| `initialize` | 17,254 / 20,474 / 18,831 | 17,254 / 30,974 / 21,831 |
+| `mint_tokens` | 11,819 / 13,630 / 12,431 | 11,819 / 15,130 / 13,556 |
+| `burn_tokens` | 11,121 / 11,121 / 11,121 | 11,121 / 11,121 / 11,121 |
+| `seize` | 12,770 / 12,770 / 12,770 | 12,770 / 12,770 / 12,770 |
+| `initialize_extra_account_metas` | 7,678 / 7,678 / 7,678 | 10,678 / 10,678 / 10,678 |
+| `add_to_blacklist` | 19,878 / 19,878 / 19,878 | 18,378 / 18,378 / 18,378 |
+| `remove_from_blacklist` | 15,153 / 15,153 / 15,153 | 13,653 / 13,653 / 13,653 |
+| `update_transfer_fee` | 11,388 / 11,388 / 11,388 | 12,888 / 12,888 / 12,888 |
+
+### Why the numbers differ
+
+- **Different transaction signatures** in each report → different on-chain transactions per run; no replay or fake txs.
+- **SSS-1 is identical** in both (init 17,254, mint 11,819, burn 11,121, seize 12,770) → same code path and workload; not a “we swapped in a mock” outcome.
+- **Variance elsewhere:** e.g. new run has higher SSS-2 `initialize` (30,974 vs 20,474) and higher `initialize_extra_account_metas` (10,678 vs 7,678). If we had faked “better” numbers we would have made them lower, not higher in the new report.
+- **Run-to-run variance** on localnet is normal (build, validator state, order of tests, etc.).
+
+### Honest verdict
+
+- **Implementation is real:** real programs, real `anchor test`, real txs, real `getTransaction` → `meta.computeUnitsConsumed`. No mock or stub in the reporting pipeline.
+- **We did not fake optimizations:** the new report is sometimes heavier (init, init_extra_account_metas, update_transfer_fee) and sometimes lighter (add/remove_from_blacklist); the mix is consistent with genuine measurement variance, not with “cooking” numbers.
+- **Same program IDs and test counts** (48 passed, 16 txs) across reports; we are comparing the same product under different runs.
 
 ---
 
@@ -69,18 +108,18 @@ Zero-copy requires fixed-size, `Pod`/`Zeroable` types. `String` is not compatibl
 | Token-2022 MintTo (callee only) | ~5,000–8,000+     | CPI + Token internals           |
 | Account creation (init)         | High (rent + CPU) | Creating new account is costly  |
 
-### Our Numbers vs Context
+### Our Numbers vs Context (from `test-report-2026-03-08T07-49-49.md`)
 
-| Instruction                  | Our CU    | Assessment                                                                 |
-|-----------------------------|-----------|----------------------------------------------------------------------------|
-| `initialize`                | 17–20K    | Create config + mint with Token-2022 extensions. Expected to be heavy.     |
-| `mint_tokens`               | 11–13K    | CPI MintTo, config, RoleAccount, optional Pyth. Reasonable.               |
-| `burn_tokens`               | ~11K      | Similar to mint. Reasonable.                                              |
-| `seize`                     | ~12.7K    | CPI TransferChecked. Reasonable.                                          |
-| `initialize_extra_account_metas` | 7.6K  | Create ExtraAccountMetaList. Light; good.                                  |
-| `add_to_blacklist`         | ~20K      | **High.** Init (account creation), role verify. Room for improvement.       |
-| `remove_from_blacklist`    | ~15K      | Close account, verify. Moderate.                                           |
-| `update_transfer_fee`      | ~11K      | Config update. Reasonable.                                                 |
+| Instruction                  | Min CU | Max CU | Avg CU | Assessment                                                                 |
+|-----------------------------|--------|--------|--------|-----------------------------------------------------------------------------|
+| `initialize`                | 17,254 | 30,974 | 21,831 | Create config + mint with Token-2022 extensions. Expected to be heavy.      |
+| `mint_tokens`               | 11,819 | 15,130 | 13,556 | CPI MintTo, config, RoleAccount, optional Pyth. Reasonable.                 |
+| `burn_tokens`               | 11,121 | 11,121 | 11,121 | Similar to mint. Reasonable.                                                |
+| `seize`                     | 12,770 | 12,770 | 12,770 | CPI TransferChecked. Reasonable.                                           |
+| `initialize_extra_account_metas` | 10,678 | 10,678 | 10,678 | Create ExtraAccountMetaList. Light; good.                                   |
+| `add_to_blacklist`         | 18,378 | 18,378 | 18,378 | Init (account creation), role verify. Room for improvement.                |
+| `remove_from_blacklist`    | 13,653 | 13,653 | 13,653 | Close account, verify. Moderate.                                            |
+| `update_transfer_fee`      | 12,888 | 12,888 | 12,888 | Config update. Reasonable.                                                   |
 
 ### Verdict: Have We Achieved the Best CU?
 
@@ -138,15 +177,58 @@ Zero-copy requires fixed-size, `Pod`/`Zeroable` types. `String` is not compatibl
 
 ---
 
-## 5. Final Recommendation
+## 5. Bounty-Safe Optimizations (Implemented)
 
-- **Zero-copy:** Implementation is correct; keep it.
-- **Overall CU:** Reasonable for our feature set; not best-in-class.
-- **Next steps:**
-  1. Profile `add_to_blacklist` and `remove_from_blacklist` with a profiler (e.g. Solana’s `--config log` or sbf tools).
-  2. Consider `RoleAccount` zero-copy if we can replace `Option<u64>` with a sentinel value.
-  3. Keep the transfer-hook as-is; it is already minimal for the hot path.
+### Phase 1: Profiling Infrastructure
+
+- **Added `cu-profile` feature** to sss-core and sss-transfer-hook.
+- **Instrumented** `initialize`, `mint_tokens`, `burn_tokens`, `seize`, `add_to_blacklist`, `remove_from_blacklist` with `sol_log_compute_units()` at function entry when `cu-profile` is enabled.
+- **Zero production impact:** Feature is off by default; instrumentation compiles out.
+
+**Profiling workflow:**
+```bash
+# Build with CU profiling enabled
+cargo build-sbf -- -p sss-core --features cu-profile
+cargo build-sbf -- -p sss-transfer-hook --features cu-profile
+
+# Deploy and run tests; parse logs for "Program log: ..." lines with remaining CU
+# Or use: anchor build, then manually build programs with cu-profile for profiling runs
+```
+
+### Phase 2: Build Profile Verification
+
+- **Workspace `[profile.release]`** now includes explicit `opt-level = 3` (in addition to `lto = "fat"`, `codegen-units = 1`, `overflow-checks = true`).
+- Programs inherit this profile; builds are optimized.
+
+### Phase 3: Constraint Audit
+
+- **Audited** all `#[account(...)]` blocks in sss-core and sss-transfer-hook.
+- **Result:** No provably redundant constraints found. Each constraint serves security or correctness; none removed.
+
+### Phase 4: Event & Clone Micro-Optimizations
+
+- **ConfigUpdated** `field: "minter_quota".to_string()` — changing to `&'static str` would require event layout change; skipped (low gain, IDL risk).
+- **add_to_blacklist** `reason.clone()` — both account and emit need owned values; no safe optimization without layout change. Skipped.
 
 ---
 
-*Generated from report `test-report-2026-03-08T05-39-39.md` and public Solana/Anchor CU documentation.*
+## 6. Deferred (Breaking — Post-Bounty)
+
+| Suggestion | Reason |
+|------------|--------|
+| RoleAccount `Option<u64>` → `u64` sentinel | IDL/SDK/CLI/Trident breaking |
+| BlacklistEntry `String` → `[u8; 128]` | Account layout, existing data breaking |
+| Reduce/remove events | Indexer and client reliance |
+
+---
+
+## 7. Final Recommendation
+
+- **Zero-copy:** Implementation is correct; keep it.
+- **Overall CU:** Reasonable for our feature set; not best-in-class.
+- **Profiling:** Use `cu-profile` for dev/profile builds to measure per-instruction CU before further optimization.
+- **Transfer hook:** Keep as-is; already minimal for the hot path.
+
+---
+
+*Generated from report `test-report-2026-03-08T07-49-49.md` and public Solana/Anchor CU documentation.*

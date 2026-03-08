@@ -7,7 +7,8 @@ use solana_sdk::{instruction::Instruction, transaction::Transaction};
 use crate::config::CliContext;
 use crate::utils::*;
 
-pub fn grant(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str) -> Result<()> {
+/// Execute grant role and return tx signature. Used by CLI and TUI.
+pub fn grant_execute(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let grantee = parse_pubkey(address_str)?;
     let role = parse_role(role_str)?;
@@ -42,17 +43,21 @@ pub fn grant(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
-    print_success(&format!("Granted {} role", role_name(role)));
+pub fn grant(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str) -> Result<()> {
+    let sig = grant_execute(ctx, mint_str, address_str, role_str)?;
+    print_success(&format!("Granted {} role", role_name(parse_role(role_str)?)));
     print_field("Mint", mint_str);
     print_field("Address", address_str);
-    print_field("Role", role_name(role));
-    print_tx(&sig.to_string());
-
+    print_field("Role", role_str);
+    print_tx(&sig);
     Ok(())
 }
 
-pub fn revoke(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str) -> Result<()> {
+/// Execute revoke role and return tx signature. Used by CLI and TUI.
+pub fn revoke_execute(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let target = parse_pubkey(address_str)?;
     let role = parse_role(role_str)?;
@@ -85,13 +90,16 @@ pub fn revoke(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &st
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
-    print_success(&format!("Revoked {} role", role_name(role)));
+pub fn revoke(ctx: &CliContext, mint_str: &str, address_str: &str, role_str: &str) -> Result<()> {
+    let sig = revoke_execute(ctx, mint_str, address_str, role_str)?;
+    print_success(&format!("Revoked {} role", role_name(parse_role(role_str)?)));
     print_field("Mint", mint_str);
     print_field("Address", address_str);
-    print_field("Role", role_name(role));
-    print_tx(&sig.to_string());
-
+    print_field("Role", role_str);
+    print_tx(&sig);
     Ok(())
 }
 

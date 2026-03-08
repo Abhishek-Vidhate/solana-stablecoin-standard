@@ -45,6 +45,9 @@ export default function RootLayout({
                     <a href="/blacklist" style={{ textDecoration: "none", color: "#666" }}>
                       Blacklist
                     </a>
+                    <a href="/confidential" style={{ textDecoration: "none", color: "#666" }}>
+                      Confidential
+                    </a>
                     <a href="/history" style={{ textDecoration: "none", color: "#666" }}>
                       History
                     </a>

@@ -5,13 +5,14 @@ use solana_sdk::{instruction::Instruction, transaction::Transaction};
 use crate::config::CliContext;
 use crate::utils::*;
 
-pub fn run(
+/// Execute seize and return tx signature. Used by CLI and TUI.
+pub fn execute(
     ctx: &CliContext,
     mint_str: &str,
     from_str: &str,
     to_str: &str,
     amount: u64,
-) -> Result<()> {
+) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let from = parse_pubkey(from_str)?;
     let to = parse_pubkey(to_str)?;
@@ -46,12 +47,21 @@ pub fn run(
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
+pub fn run(
+    ctx: &CliContext,
+    mint_str: &str,
+    from_str: &str,
+    to_str: &str,
+    amount: u64,
+) -> Result<()> {
+    let sig = execute(ctx, mint_str, from_str, to_str, amount)?;
     print_success(&format!("Seized {amount} tokens"));
     print_field("Mint", mint_str);
     print_field("From", from_str);
     print_field("To", to_str);
-    print_tx(&sig.to_string());
-
+    print_tx(&sig);
     Ok(())
 }

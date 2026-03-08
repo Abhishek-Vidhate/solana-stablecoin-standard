@@ -6,7 +6,8 @@ use spl_associated_token_account::get_associated_token_address_with_program_id;
 use crate::config::CliContext;
 use crate::utils::*;
 
-pub fn run(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> Result<()> {
+/// Execute mint and return tx signature. Used by CLI and TUI.
+pub fn execute(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> Result<String> {
     let mint = parse_pubkey(mint_str)?;
     let to_wallet = parse_pubkey(to_str)?;
 
@@ -43,12 +44,17 @@ pub fn run(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> Resul
     );
 
     let sig = ctx.client.send_and_confirm_transaction(&tx)?;
+    Ok(sig.to_string())
+}
 
+pub fn run(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> Result<()> {
+    let sig = execute(ctx, mint_str, to_str, amount)?;
+    let recipient_ata =
+        get_associated_token_address_with_program_id(&parse_pubkey(to_str)?, &parse_pubkey(mint_str)?, &spl_token_2022::ID);
     print_success(&format!("Minted {amount} tokens"));
     print_field("Mint", mint_str);
     print_field("Recipient Wallet", to_str);
     print_field("Recipient ATA", &recipient_ata.to_string());
-    print_tx(&sig.to_string());
-
+    print_tx(&sig);
     Ok(())
 }

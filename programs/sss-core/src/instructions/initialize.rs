@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenInterface};
 
+#[cfg(feature = "cu-profile")]
+use anchor_lang::solana_program::log::sol_log_compute_units;
+
 use crate::constants::*;
 use crate::error::SssError;
 use crate::events::StablecoinInitialized;
@@ -60,6 +63,8 @@ pub struct Initialize<'info> {
 }
 
 pub fn handler_initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
+    #[cfg(feature = "cu-profile")]
+    sol_log_compute_units();
     require!(args.preset >= 1 && args.preset <= 4, SssError::InvalidPreset);
     require!(args.name.len() <= 32, SssError::NameTooLong);
     require!(args.symbol.len() <= 10, SssError::SymbolTooLong);

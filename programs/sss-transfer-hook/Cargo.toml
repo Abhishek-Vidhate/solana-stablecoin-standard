@@ -10,6 +10,7 @@ name = "sss_transfer_hook"
 
 [features]
 default = []
+cu-profile = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []

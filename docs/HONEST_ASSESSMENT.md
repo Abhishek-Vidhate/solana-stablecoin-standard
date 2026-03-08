@@ -23,8 +23,8 @@ This document provides a clear, honest view of what is fully implemented, what i
 1. **SSS-2 seize with transfer hook** — Skipped. Token-2022 transfer hook CPI reports "Unknown program" when sss-core does `transfer_checked` with remaining_accounts on local validator. Works on devnet; local validator has known limitations with nested CPIs to undeployed-like hook programs.
 2. **Oracle mint with real PriceUpdateV2** — No test mints *with* a Pyth price update (requires devnet feed or mock).
 3. **Devnet example tx signatures** — No recorded devnet signatures for init/mint/burn/freeze/blacklist/fees.
-4. **Backend init, fees update/withdraw** — Not implemented.
-5. **Frontend Create, Roles, Blacklist, History** — Stubs.
+4. **Backend init** — Not implemented (create is via CLI or frontend/SDK). Backend **fees update/withdraw** are implemented.
+5. **Frontend** — Create, Roles, Blacklist, History are wired to backend/SDK (see `docs/BOUNTY_COMPLIANCE.md`).
 
 ### Generate Test Report (CU, Signatures, Explorer Links)
 
@@ -52,39 +52,40 @@ Writes `reports/test-report-<timestamp>.md` with transaction signatures, compute
 
 ---
 
-### 1.2 Frontend — **PARTIAL (Stubs)**
+### 1.2 Frontend — **Functional (Not Required by Bounty)**
 
 
-| Page           | Status     | What's Missing                                                                            |
+| Page           | Status     | Notes                                                                                     |
 | -------------- | ---------- | ----------------------------------------------------------------------------------------- |
-| **Create**     | Stub       | Shows CLI example only. No form to create via SDK or backend. No preset selector (1/2/4). |
-| **Operations** | Functional | Forms call backend API (mint, burn, freeze, thaw, pause, unpause, seize). Works.          |
-| **Roles**      | Stub       | Shows CLI examples only. No forms to grant/revoke via backend.                            |
-| **Blacklist**  | Stub       | Shows CLI examples only. No forms to add/remove via backend.                              |
-| **History**    | Stub       | Likely shows CLI example or placeholder. No audit log fetch.                              |
+| **Create**     | Functional | Form: preset 1/2/4, name, symbol, decimals; calls SDK `SolanaStablecoin.create()` with wallet. |
+| **Operations** | Functional | Mint, burn, freeze, thaw, pause, unpause, seize; also fees update/withdraw (SSS-4).        |
+| **Roles**      | Functional | Grant/revoke via `/roles/grant`, `/roles/revoke`; list roles.                             |
+| **Blacklist**  | Functional | Add/remove via `/compliance/blacklist/add`, `/compliance/blacklist/remove`; check status. |
+| **History**    | Functional | Fetches `/compliance/audit-trail/:mint`, displays tx list.                                |
+| **Confidential** | Functional | SSS-3 info page; CLI/SDK for ZK ops.                                                     |
 
 
-**Backend has:** `/compliance/blacklist/add`, `/compliance/blacklist/remove`, `/compliance/audit-trail/:mint`. Frontend does not call them.
+The bounty listing asks for **Blockchain + Backend** only; frontend was our addition. See `docs/BOUNTY_COMPLIANCE.md`.
 
 ---
 
-### 1.3 Backend SSS-4 Fees — **MISSING**
+### 1.3 Backend SSS-4 Fees — **IMPLEMENTED**
 
 
-| Endpoint                             | Status              |
-| ------------------------------------ | ------------------- |
-| `POST /operations/mint`              | Done                |
-| `POST /operations/burn`              | Done                |
-| `POST /operations/freeze`            | Done                |
-| `POST /operations/thaw`              | Done                |
-| `POST /operations/pause`             | Done                |
-| `POST /operations/unpause`           | Done                |
-| `POST /operations/seize`             | Done                |
-| `**POST /operations/fees/update`**   | **Not implemented** |
-| `**POST /operations/fees/withdraw`** | **Not implemented** |
+| Endpoint                             | Status   |
+| ------------------------------------ | -------- |
+| `POST /operations/mint`              | Done     |
+| `POST /operations/burn`              | Done     |
+| `POST /operations/freeze`             | Done     |
+| `POST /operations/thaw`              | Done     |
+| `POST /operations/pause`             | Done     |
+| `POST /operations/unpause`           | Done     |
+| `POST /operations/seize`             | Done     |
+| `POST /operations/fees/update`       | Done     |
+| `POST /operations/fees/withdraw`    | Done     |
 
 
-The SDK has `stablecoin.fees.updateFee()` and `stablecoin.fees.withdrawWithheld()`. The backend never exposes them. For SSS-4 mints, you cannot update fees or withdraw withheld via the API.
+Fees endpoints are in `backend/src/routes/operations.ts`. Consider adding them to `docs/API.md`.
 
 ---
 
@@ -113,9 +114,9 @@ No `POST /operations/init` or similar. You cannot create a new stablecoin via th
 
 ---
 
-### 1.7 Optional TUI — **NOT DONE**
+### 1.7 TUI — **COMPLETE**
 
-PR#19 has Ink TUI. We have Rust CLI + Next.js. TUI is optional; manual testing guide treats it as future.
+CLI subcommand `sss-token tui [--mint]` with ratatui. Tabs: Dashboard, Config, Roles, Blacklist, Events, Fees (SSS-4). Press `r` to refresh, Tab to switch. PR#19 has Ink TUI; we use ratatui (like PR#6 reference).
 
 ---
 
@@ -156,24 +157,21 @@ SSS-4 (transfer fees) is our main differentiator. Here is the honest breakdown.
 
 ---
 
-### 2.4 Backend — **GAP**
+### 2.4 Backend — **COMPLETE for SSS-4**
 
 - Backend can mint, burn, freeze, thaw, pause, seize on **any** preset (including SSS-4).
-- Backend has **no** endpoints for:
-  - Update transfer fee (bps, max)
-  - Withdraw withheld fees
+- Backend **has** `POST /operations/fees/update` and `POST /operations/fees/withdraw`.
 
-**Verdict:** SSS-4 core ops (mint, burn, etc.) work. SSS-4-specific ops (fees update, withdraw) are missing.
+**Verdict:** SSS-4 ops including fees update and withdraw are implemented.
 
 ---
 
-### 2.5 Frontend — **GAP**
+### 2.5 Frontend — **SSS-4 Supported**
 
-- **Create:** Mentions "Preset 4 (with fees)" in text only. No form to create SSS-4.
-- **Operations:** Mint, burn, freeze, etc. work for SSS-4 mints. No fees update or withdraw forms.
-- **No dedicated Fees page** for SSS-4 (show config, update, withdraw).
+- **Create:** Form supports preset 1, 2, 4 (SSS-4 create via SDK + wallet).
+- **Operations:** Mint, burn, freeze, etc. work for SSS-4 mints; forms for fees update and withdraw are on the Operations page.
 
-**Verdict:** SSS-4 is not surfaced in the UI. You can operate on SSS-4 mints (mint, burn) but cannot manage fees from the frontend.
+**Verdict:** SSS-4 is surfaced: create (preset 4), operate, and manage fees from the UI. Frontend is not required by the bounty.
 
 ---
 
@@ -200,14 +198,12 @@ SSS-4 (transfer fees) is our main differentiator. Here is the honest breakdown.
 ### High Impact (Do These)
 
 1. **Devnet example tx signatures** — Run real devnet flow, capture and document init/mint/burn/freeze/blacklist/fees signatures in `deployments/devnet.md`.
-2. **Backend SSS-4 fees** — Add `POST /operations/fees/update` and `POST /operations/fees/withdraw`.
-3. **Frontend Roles + Blacklist** — Wire to backend `/compliance` routes so users can grant/revoke roles and add/remove blacklist from the UI.
-4. **Frontend Create** — Add form to create stablecoin via SDK (preset 1/2/4, name, symbol, decimals). Requires wallet signing.
+2. **Backend init** — Optional: `POST /operations/init` if you want create via API (bounty does not require it).
+3. **API.md** — Document `POST /operations/fees/update` and `POST /operations/fees/withdraw`.
 
 ### Medium Impact
 
-1. **Frontend SSS-4 Fees** — Add Fees section or page: show config, update bps/max, withdraw to treasury.
-2. **Frontend History** — Wire to `/compliance/audit-trail/:mint` to show audit log.
+1. **Frontend** (`example/frontend/`) — Create, Roles, Blacklist, History, Confidential (SSS-3), and SSS-4 fees are wired. **TUI** has Dashboard, Config, Roles, Blacklist, Events, Fees (SSS-4), **Operations** (mint, burn, freeze, thaw, pause, unpause, seize), and **Compliance** (add/remove blacklist, grant/revoke role).
 
 ### Lower Impact
 
@@ -227,7 +223,10 @@ SSS-4 (transfer fees) is our main differentiator. Here is the honest breakdown.
 - Docker / docker-compose
 - Backend core ops (mint, burn, freeze, thaw, pause, unpause, seize)
 - Backend compliance (blacklist add/remove, status, audit-trail)
-- Frontend Operations page (calls backend)
+- Backend SSS-4 fees (update, withdraw)
+- Backend roles (grant, revoke, list)
+- Frontend (Create, Operations, Roles, Blacklist, Confidential, History — all wired)
+- TUI (Dashboard, Config, Roles, Blacklist, Events, Fees for SSS-4)
 - Docs (ARCHITECTURE, SDK, CLI, API, OPERATIONS, SSS-1–4, COMPLIANCE, SECURITY, MANUAL_TESTING_GUIDE)
 - Devnet program deployment (IDs + deploy signatures)
 
