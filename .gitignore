@@ -37,3 +37,15 @@ reports/debug-env.json
 .vscode/
 docs/BOUNTY_IMPLEMENTATION_REPORT.md
 docs/MANUAL_TESTING_GUIDE.md
+.audit/
+CHANGELOG.md        
+deployments/
+docs/BOUNTY_COMPLIANCE.md
+docs/CLI.md
+docs/CU_AND_ZEROCOPY_ASSESSMENT.md
+docs/HONEST_ASSESSMENT.md
+docs/PYTH_ORACLE_AUDIT.md
+docs/REPORTER_ANALYSIS.md
+docs/TEST_REPORT.md
+docs/TUI_VS_FRONTEND.md
+reports/
