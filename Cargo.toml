@@ -1,5 +1,7 @@
 [workspace]
 members = ["programs/*", "cli"]
+# trident-tests excluded: heavy deps + git patch cause cargo resolution/fetch to hang.
+# To run Trident: cd trident-tests && cargo run --bin fuzz_0 (standalone)
 resolver = "2"
 
 [profile.release]
@@ -22,3 +24,9 @@ spl-tlv-account-resolution = "0.8"
 bytemuck = { version = "1.20.0", features = ["min_const_generics"] }
 solana-sdk = "=2.3.1"
 solana-client = "=2.3.13"
+
+[patch.crates-io]
+# pyth-solana-receiver-sdk needs bytemuck_derive <=1.8.1; solana-ed25519-program ^1.8.1 pulls 1.9.0
+bytemuck_derive = { git = "https://github.com/Lokathor/bytemuck", tag = "bytemuck_derive-v1.8.1" }
+
+

@@ -95,10 +95,19 @@ await stablecoin.compliance.blacklistAdd(
 
 ## CLI Usage
 
-The CLI is a Rust binary (`sss-token`) built with clap. Install via `cargo install --path cli` or run with `cargo run -p sss-cli --`.
+The CLI is a Rust binary (`sss-token`) built with clap. Install globally so you can run `sss-token` from any directory:
 
 ```bash
-# Build and run
+# Install (adds sss-token to ~/.cargo/bin; ensure it's in your PATH)
+cargo install --path cli
+
+# Then use like any CLI
+sss-token --help
+```
+
+For development without installing:
+
+```bash
 cargo build -p sss-cli
 ./target/debug/sss-token --help
 
@@ -174,14 +183,12 @@ example/
 | [Architecture](docs/ARCHITECTURE.md) | System design, account structures, PDA derivation, CPI flows |
 | [SSS-1](docs/SSS-1.md) | Minimal utility preset specification |
 | [SSS-2](docs/SSS-2.md) | Regulated compliant preset specification |
-| [SSS-3](docs/SSS-3.md) | Confidential transfer preset specification |
-| [SSS-4](docs/SSS-4.md) | Monetized preset specification (transfer fees) |
+| [SSS-3](docs/SSS-3.md) | Confidential preset (ZK transfer amounts) |
+| [SSS-4](docs/SSS-4.md) | Monetized preset (transfer fees, PYUSD-style) |
 | [SDK Reference](docs/SDK.md) | TypeScript SDK API, types, PDA helpers, error codes |
-| [CLI Reference](docs/CLI.md) | All CLI commands with usage examples |
-| [API Reference](docs/API.md) | Backend REST endpoints, authentication, Docker setup |
 | [Operations Runbook](docs/OPERATIONS.md) | Operator procedures for deployment and daily operations |
 | [Compliance](docs/COMPLIANCE.md) | Regulatory architecture (GENIUS Act, MiCA) |
-| [Security](docs/SECURITY.md) | Threat model and mitigation strategies |
+| [API Reference](docs/API.md) | Backend REST endpoints, authentication, Docker setup |
 
 ## Tech Stack
 

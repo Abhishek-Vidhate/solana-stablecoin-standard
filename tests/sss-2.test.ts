@@ -19,6 +19,9 @@ import {
   getTokenBalance,
   initReportConnection,
   reportTx,
+  logInput,
+  logOutput,
+  logAction,
   HOOK_PROGRAM_ID,
   ROLE_ADMIN,
   ROLE_MINTER,
@@ -77,6 +80,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
 
   it("initializes SSS-2 config with hook enabled", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
+    logInput("initialize", { preset: 2, enableTransferHook: true, defaultAccountFrozen: true, mint: mint.publicKey });
 
     const initSig = await coreProgram.methods
       .initialize({
@@ -103,16 +107,19 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       })
       .rpc();
     reportTx("SSS-2", "initializes SSS-2 config with hook enabled", "initialize", initSig);
+    logOutput("initialize", { signature: initSig });
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.preset).to.equal(2);
     expect(config.enableTransferHook).to.equal(1);
     expect(config.defaultAccountFrozen).to.equal(1);
     expect(config.enablePermanentDelegate).to.equal(1);
+    logOutput("initialize (state)", { preset: config.preset, enableTransferHook: config.enableTransferHook });
   });
 
   it("initializes extra account metas for the hook", async () => {
     const [extraMetasPda] = deriveExtraAccountMetasPda(mint.publicKey);
+    logInput("initialize_extra_account_metas", { mint: mint.publicKey, extraMetasPda });
 
     const hookSig = await hookProgram.methods
       .initializeExtraAccountMetas()
@@ -124,6 +131,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       })
       .rpc();
     reportTx("SSS-2", "initializes extra account metas for the hook", "initialize_extra_account_metas", hookSig);
+    logOutput("initialize_extra_account_metas", { signature: hookSig });
 
     const accountInfo = await connection.getAccountInfo(extraMetasPda);
     expect(accountInfo).to.not.be.null;
@@ -131,6 +139,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
   });
 
   it("creates token accounts in frozen state by default", async () => {
+    logAction("Creating token account (default frozen)", { owner: userA.publicKey, mint: mint.publicKey });
     userAAta = await createTokenAccount(
       connection,
       payer,
@@ -138,11 +147,13 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       userA.publicKey
     );
 
+    logOutput("create_token_account", { userAAta });
     // The ATA should be created frozen because DefaultAccountState is Frozen
     // We need to thaw before we can use it
   });
 
   it("grants all required roles", async () => {
+    logAction("Granting roles", { roles: ["minter", "freezer", "blacklister", "seizer"] });
     await grantRole(coreProgram, payer, configPda, minter.publicKey, ROLE_MINTER);
     await grantRole(coreProgram, payer, configPda, freezer.publicKey, ROLE_FREEZER);
     await grantRole(coreProgram, payer, configPda, blacklister.publicKey, ROLE_BLACKLISTER);
@@ -155,10 +166,12 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
     const [blacklisterRolePda] = deriveRolePda(configPda, blacklister.publicKey, ROLE_BLACKLISTER);
     const blRole = await coreProgram.account.roleAccount.fetch(blacklisterRolePda);
     expect(blRole.role).to.deep.include({ blacklister: {} });
+    logOutput("grant_role", { minter: minterRolePda, blacklister: blacklisterRolePda });
   });
 
   it("thaws account and mints tokens", async () => {
     const [freezerRolePda] = deriveRolePda(configPda, freezer.publicKey, ROLE_FREEZER);
+    logAction("Thawing user A account (default frozen)", { tokenAccount: userAAta });
 
     // Thaw user A's account first (it was created frozen by default)
     await coreProgram.methods
@@ -177,6 +190,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
     // Mint tokens to user A
     const [minterRolePda] = deriveRolePda(configPda, minter.publicKey, ROLE_MINTER);
     const mintAmount = new BN(1_000_000_000_000); // 1M tokens
+    logInput("mint_tokens", { amount: mintAmount, to: userAAta });
 
     const mintSig = await coreProgram.methods
       .mintTokens(mintAmount)
@@ -192,11 +206,13 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       .signers([minter])
       .rpc();
     reportTx("SSS-2", "thaws account and mints tokens", "mint_tokens", mintSig);
+    logOutput("mint_tokens", { signature: mintSig });
 
     await connection.confirmTransaction(mintSig, "confirmed");
 
     const balance = await getTokenBalance(connection, userAAta);
     expect(balance.toString()).to.equal(mintAmount.toString());
+    logOutput("mint_tokens (result)", { balance: balance.toString() });
   });
 
   it("adds address to blacklist", async () => {
@@ -206,6 +222,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       ROLE_BLACKLISTER
     );
     const [blacklistPda] = deriveBlacklistPda(mint.publicKey, userB.publicKey);
+    logInput("add_to_blacklist", { address: userB.publicKey, reason: "OFAC-2026-001" });
 
     const addBlSig = await hookProgram.methods
       .addToBlacklist("OFAC-2026-001")
@@ -220,11 +237,13 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       .signers([blacklister])
       .rpc();
     reportTx("SSS-2", "adds address to blacklist", "add_to_blacklist", addBlSig);
+    logOutput("add_to_blacklist", { signature: addBlSig });
 
     const entry = await hookProgram.account.blacklistEntry.fetch(blacklistPda);
     expect(entry.address.toBase58()).to.equal(userB.publicKey.toBase58());
     expect(entry.mint.toBase58()).to.equal(mint.publicKey.toBase58());
     expect(entry.reason).to.equal("OFAC-2026-001");
+    logOutput("add_to_blacklist (entry)", { address: entry.address, reason: entry.reason });
   });
 
   it("removes address from blacklist", async () => {
@@ -234,6 +253,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       ROLE_BLACKLISTER
     );
     const [blacklistPda] = deriveBlacklistPda(mint.publicKey, userB.publicKey);
+    logAction("Removing address from blacklist", { address: userB.publicKey });
 
     const rmBlSig = await hookProgram.methods
       .removeFromBlacklist()
@@ -246,6 +266,7 @@ describe("SSS-2 Stablecoin (Transfer Hook + Default Frozen)", () => {
       .signers([blacklister])
       .rpc();
     reportTx("SSS-2", "removes address from blacklist", "remove_from_blacklist", rmBlSig);
+    logOutput("remove_from_blacklist", { signature: rmBlSig });
 
     // Entry should be closed
     const accountInfo = await connection.getAccountInfo(blacklistPda);

@@ -62,6 +62,47 @@ export function reportTx(suite: string, test: string, instruction: string, signa
   reportTransaction(suite, test, instruction, signature);
 }
 
+/** Serialize values for test output (BN, PublicKey, etc.). */
+function serializeForLog(value: unknown): unknown {
+  if (value === null || value === undefined) return value;
+  if (value instanceof BN) return value.toString();
+  if (value instanceof PublicKey) return value.toBase58();
+  if (typeof value === "object" && value !== null && "toBase58" in value) return (value as PublicKey).toBase58();
+  if (typeof value === "bigint") return value.toString();
+  if (Array.isArray(value)) return value.map(serializeForLog);
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = serializeForLog(v);
+    return out;
+  }
+  return value;
+}
+
+/** Log test input (params, accounts) for transparency. */
+export function logInput(instruction: string, data: Record<string, unknown>) {
+  const serialized = serializeForLog(data) as Record<string, unknown>;
+  console.log("  📥 INPUT  ", instruction);
+  console.log("     ", JSON.stringify(serialized, null, 2));
+}
+
+/** Log test output (tx sig, state) for transparency. */
+export function logOutput(instruction: string, data: Record<string, unknown>) {
+  const serialized = serializeForLog(data) as Record<string, unknown>;
+  console.log("  📤 OUTPUT ", instruction);
+  console.log("     ", JSON.stringify(serialized, null, 2));
+}
+
+/** Log what is happening in a test step. */
+export function logAction(description: string, data?: Record<string, unknown>) {
+  if (data) {
+    const serialized = serializeForLog(data) as Record<string, unknown>;
+    console.log("  ⚙️  ACTION ", description);
+    console.log("     ", JSON.stringify(serialized, null, 2));
+  } else {
+    console.log("  ⚙️  ACTION ", description);
+  }
+}
+
 // ── PDA Derivation ──────────────────────────────────────────────────────
 
 export function deriveConfigPda(mint: PublicKey): [PublicKey, number] {

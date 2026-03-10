@@ -12,6 +12,9 @@ import {
   deriveRolePda,
   grantRole,
   fetchConfig,
+  logInput,
+  logOutput,
+  logAction,
   ROLE_ADMIN,
   ROLE_MINTER,
   ROLE_FREEZER,
@@ -84,6 +87,7 @@ describe("Role Management", () => {
   });
 
   it("grants and verifies all role types", async () => {
+    logAction("Granting all role types", { roles: ["minter", "freezer", "pauser", "burner", "blacklister", "seizer"] });
     const roles = [
       { user: userA, role: ROLE_MINTER, expected: { minter: {} } },
       { user: userA, role: ROLE_FREEZER, expected: { freezer: {} } },
@@ -102,11 +106,13 @@ describe("Role Management", () => {
       );
       expect(roleAccount.role).to.deep.include(expected);
     }
+    logOutput("grant_role", { rolesGranted: roles.length });
   });
 
   it("revokes roles correctly", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
     const [minterRolePda] = deriveRolePda(configPda, userA.publicKey, ROLE_MINTER);
+    logInput("revoke_role", { roleAccount: minterRolePda, role: "minter" });
 
     await coreProgram.methods
       .revokeRole()
@@ -120,10 +126,12 @@ describe("Role Management", () => {
 
     const accountInfo = await connection.getAccountInfo(minterRolePda);
     expect(accountInfo).to.be.null;
+    logOutput("revoke_role", { result: "role account closed" });
   });
 
   it("cannot revoke the last admin", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
+    logInput("revoke_role (expect fail)", { roleAccount: adminRolePda, expectedError: "LastAdmin" });
 
     try {
       await coreProgram.methods
@@ -138,6 +146,7 @@ describe("Role Management", () => {
       expect.fail("Should have thrown LastAdmin");
     } catch (err: any) {
       expect(err.toString()).to.include("LastAdmin");
+      logOutput("revoke_role (rejected)", { error: "LastAdmin as expected" });
     }
   });
 

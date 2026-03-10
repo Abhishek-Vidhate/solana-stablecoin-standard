@@ -14,6 +14,9 @@ import {
   grantRole,
   fetchConfig,
   getTokenBalance,
+  logInput,
+  logOutput,
+  logAction,
   ROLE_ADMIN,
   ROLE_MINTER,
   ROLE_FREEZER,
@@ -127,6 +130,7 @@ describe("Security Tests", () => {
         attacker.publicKey,
         ROLE_MINTER
       );
+      logInput("mint_tokens (expect fail)", { minter: attacker.publicKey, expectedError: "no minter role" });
 
       try {
         await coreProgram.methods
@@ -146,6 +150,7 @@ describe("Security Tests", () => {
       } catch (err: any) {
         // PDA does not exist, so account constraint fails
         expect(err).to.exist;
+        logOutput("mint_tokens (rejected)", { error: "unauthorized as expected" });
       }
     });
 
@@ -155,6 +160,7 @@ describe("Security Tests", () => {
         attacker.publicKey,
         ROLE_FREEZER
       );
+      logInput("freeze_account (expect fail)", { freezer: attacker.publicKey });
 
       try {
         await coreProgram.methods
@@ -172,6 +178,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown - attacker has no freezer role");
       } catch (err: any) {
         expect(err).to.exist;
+        logOutput("freeze_account (rejected)", { error: "unauthorized as expected" });
       }
     });
 
@@ -181,6 +188,7 @@ describe("Security Tests", () => {
         attacker.publicKey,
         ROLE_PAUSER
       );
+      logInput("pause (expect fail)", { pauser: attacker.publicKey });
 
       try {
         await coreProgram.methods
@@ -195,6 +203,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown - attacker has no pauser role");
       } catch (err: any) {
         expect(err).to.exist;
+        logOutput("pause (rejected)", { error: "unauthorized as expected" });
       }
     });
 
@@ -204,6 +213,7 @@ describe("Security Tests", () => {
         attacker.publicKey,
         ROLE_BURNER
       );
+      logInput("burn_tokens (expect fail)", { burner: attacker.publicKey });
 
       try {
         await coreProgram.methods
@@ -221,6 +231,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown - attacker has no burner role");
       } catch (err: any) {
         expect(err).to.exist;
+        logOutput("burn_tokens (rejected)", { error: "unauthorized as expected" });
       }
     });
   });
@@ -268,6 +279,7 @@ describe("Security Tests", () => {
         minter.publicKey,
         ROLE_MINTER
       );
+      logInput("mint_tokens (expect fail, paused)", { amount: "1M" });
 
       try {
         await coreProgram.methods
@@ -286,6 +298,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown Paused");
       } catch (err: any) {
         expect(err.toString()).to.include("Paused");
+        logOutput("mint_tokens (rejected)", { error: "Paused as expected" });
       }
     });
 
@@ -295,6 +308,7 @@ describe("Security Tests", () => {
         burner.publicKey,
         ROLE_BURNER
       );
+      logInput("burn_tokens (expect fail, paused)", { amount: "1M" });
 
       try {
         await coreProgram.methods
@@ -312,6 +326,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown Paused");
       } catch (err: any) {
         expect(err.toString()).to.include("Paused");
+        logOutput("burn_tokens (rejected)", { error: "Paused as expected" });
       }
     });
 
@@ -321,6 +336,7 @@ describe("Security Tests", () => {
         freezer.publicKey,
         ROLE_FREEZER
       );
+      logInput("freeze_account (expect fail, paused)", { tokenAccount: recipientAta });
 
       try {
         await coreProgram.methods
@@ -338,6 +354,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown Paused");
       } catch (err: any) {
         expect(err.toString()).to.include("Paused");
+        logOutput("freeze_account (rejected)", { error: "Paused as expected" });
       }
     });
 
@@ -347,6 +364,7 @@ describe("Security Tests", () => {
         pauser.publicKey,
         ROLE_PAUSER
       );
+      logInput("pause (expect fail)", { reason: "already paused" });
 
       try {
         await coreProgram.methods
@@ -361,12 +379,14 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown - already paused");
       } catch (err: any) {
         expect(err.toString()).to.include("Paused");
+        logOutput("pause (rejected)", { error: "already paused as expected" });
       }
     });
   });
 
   describe("Supply and amount constraints", () => {
     it("supply cap overflow fails", async () => {
+      logInput("mint_tokens (expect fail)", { amount: "600K", supplyCap: "1M", currentMinted: "500K" });
       // Already minted 500K. Cap is 1M. Try to mint 600K.
       const [minterRolePda] = deriveRolePda(
         configPda,
@@ -391,6 +411,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown SupplyCapExceeded");
       } catch (err: any) {
         expect(err.toString()).to.include("SupplyCapExceeded");
+        logOutput("mint_tokens (rejected)", { error: "SupplyCapExceeded as expected" });
       }
     });
 
@@ -400,6 +421,7 @@ describe("Security Tests", () => {
         minter.publicKey,
         ROLE_MINTER
       );
+      logInput("mint_tokens (expect fail)", { amount: 0, expectedError: "ZeroAmount" });
 
       try {
         await coreProgram.methods
@@ -418,6 +440,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown ZeroAmount");
       } catch (err: any) {
         expect(err.toString()).to.include("ZeroAmount");
+        logOutput("mint_tokens (rejected)", { error: "ZeroAmount as expected" });
       }
     });
 
@@ -427,6 +450,7 @@ describe("Security Tests", () => {
         burner.publicKey,
         ROLE_BURNER
       );
+      logInput("burn_tokens (expect fail)", { amount: 0, expectedError: "ZeroAmount" });
 
       try {
         await coreProgram.methods
@@ -444,6 +468,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown ZeroAmount");
       } catch (err: any) {
         expect(err.toString()).to.include("ZeroAmount");
+        logOutput("burn_tokens (rejected)", { error: "ZeroAmount as expected" });
       }
     });
 
@@ -453,6 +478,7 @@ describe("Security Tests", () => {
         pauser.publicKey,
         ROLE_PAUSER
       );
+      logInput("unpause (expect fail)", { expectedError: "NotPaused", reason: "not paused" });
 
       try {
         await coreProgram.methods
@@ -467,6 +493,7 @@ describe("Security Tests", () => {
         expect.fail("Should have thrown NotPaused");
       } catch (err: any) {
         expect(err.toString()).to.include("NotPaused");
+        logOutput("unpause (rejected)", { error: "NotPaused as expected" });
       }
     });
   });

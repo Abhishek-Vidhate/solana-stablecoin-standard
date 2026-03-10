@@ -148,12 +148,16 @@ impl ParsedConfig {
     }
 }
 
+/// Minimum config size: 8 (discriminator) + 416 (through pending_authority).
+/// Does not require _reserved (31 bytes) so older config layouts remain valid.
+const CONFIG_MIN_LEN: usize = 8 + 416;
+
 pub fn parse_config_account(data: &[u8]) -> Result<ParsedConfig> {
-    if data.len() < 8 + 448 {
+    if data.len() < CONFIG_MIN_LEN {
         bail!(
             "Config account data too short: {} bytes (expected >= {})",
             data.len(),
-            8 + 448
+            CONFIG_MIN_LEN
         );
     }
 

@@ -22,6 +22,8 @@ import {
   deriveConfigPda,
   deriveRolePda,
   grantRole,
+  logInput,
+  logOutput,
   ROLE_ADMIN,
   ROLE_MINTER,
 } from "./helpers";
@@ -64,6 +66,7 @@ describe("Oracle (Pyth)", () => {
 
   it("initializes config with oracle_feed_id", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
+    logInput("initialize", { preset: 1, oracleFeedId: "SOL/USD" });
 
     await coreProgram.methods
       .initialize({
@@ -95,6 +98,7 @@ describe("Oracle (Pyth)", () => {
     expect(Buffer.from(config.oracleFeedId).toString("hex")).to.equal(
       SOL_USD_FEED_ID.toString("hex")
     );
+    logOutput("initialize", { hasOracleFeed: config.hasOracleFeed });
   });
 
   it("rejects mint without price update when oracle is configured", async () => {
@@ -130,6 +134,7 @@ describe("Oracle (Pyth)", () => {
       await provider.sendAndConfirm(tx, [minter]);
     }
 
+    logInput("mint_tokens (expect fail)", { expectedError: "PriceUpdateRequired", oracleConfigured: true });
     try {
       await coreProgram.methods
         .mintTokens(new BN(1_000_000))
@@ -152,6 +157,7 @@ describe("Oracle (Pyth)", () => {
         msg.includes("PriceUpdateRequired") || msg.includes("Price update account required"),
         `Expected oracle error, got: ${msg}`
       ).to.be.true;
+      logOutput("mint_tokens (rejected)", { error: "PriceUpdateRequired as expected" });
     }
   });
 });

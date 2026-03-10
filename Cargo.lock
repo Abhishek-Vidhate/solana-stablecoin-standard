@@ -808,8 +808,7 @@ dependencies = [
 [[package]]
 name = "bytemuck_derive"
 version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fa76293b4f7bb636ab88fd78228235b5248b4d05cc589aed610f954af5d7c7a"
+source = "git+https://github.com/Lokathor/bytemuck?tag=bytemuck_derive-v1.8.1#45fbae7d8ddb8d75353588920c6fab16943e96bd"
 dependencies = [
  "proc-macro2",
  "quote",

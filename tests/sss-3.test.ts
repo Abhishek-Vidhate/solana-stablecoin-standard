@@ -16,6 +16,9 @@ import {
   getTokenBalance,
   initReportConnection,
   reportTx,
+  logInput,
+  logOutput,
+  logAction,
   ROLE_ADMIN,
   ROLE_MINTER,
 } from "./helpers";
@@ -62,6 +65,7 @@ describe("SSS-3 Stablecoin", () => {
 
   it("initializes an SSS-3 stablecoin", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
+    logInput("initialize", { preset: 3, supplyCap: SUPPLY_CAP, confidentialMint: true });
 
     const initSig = await coreProgram.methods
       .initialize({
@@ -88,6 +92,7 @@ describe("SSS-3 Stablecoin", () => {
       })
       .rpc();
     reportTx("SSS-3", "initializes an SSS-3 stablecoin", "initialize", initSig);
+    logOutput("initialize", { signature: initSig });
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.preset).to.equal(3);
@@ -99,9 +104,11 @@ describe("SSS-3 Stablecoin", () => {
     expect(config.authority.toBase58()).to.equal(payer.publicKey.toBase58());
     expect(config.mint.toBase58()).to.equal(mint.publicKey.toBase58());
     expect(config.adminCount).to.equal(1);
+    logOutput("initialize (state)", { preset: config.preset, supplyCap: config.supplyCap });
   });
 
   it("grants minter role and mints tokens", async () => {
+    logAction("Granting minter role", { grantee: minter.publicKey });
     await grantRole(
       coreProgram,
       payer,
@@ -118,6 +125,7 @@ describe("SSS-3 Stablecoin", () => {
     );
 
     const [minterRolePda] = deriveRolePda(configPda, minter.publicKey, ROLE_MINTER);
+    logInput("mint_tokens", { amount: MINT_AMOUNT, to: recipientAta });
 
     const mintSig = await coreProgram.methods
       .mintTokens(MINT_AMOUNT)
@@ -133,6 +141,7 @@ describe("SSS-3 Stablecoin", () => {
       .signers([minter])
       .rpc();
     reportTx("SSS-3", "grants minter role and mints tokens", "mint_tokens", mintSig);
+    logOutput("mint_tokens", { signature: mintSig });
 
     await connection.confirmTransaction(mintSig, "confirmed");
 
@@ -141,5 +150,6 @@ describe("SSS-3 Stablecoin", () => {
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.totalMinted.toString()).to.equal(MINT_AMOUNT.toString());
+    logOutput("mint_tokens (result)", { recipientBalance: balance.toString(), totalMinted: config.totalMinted });
   });
 });

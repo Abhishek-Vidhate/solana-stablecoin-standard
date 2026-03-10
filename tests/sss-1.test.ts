@@ -16,6 +16,9 @@ import {
   getTokenBalance,
   initReportConnection,
   reportTx,
+  logInput,
+  logOutput,
+  logAction,
   ROLE_ADMIN,
   ROLE_MINTER,
   ROLE_FREEZER,
@@ -76,6 +79,16 @@ describe("SSS-1 Stablecoin", () => {
   it("initializes an SSS-1 stablecoin", async () => {
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
 
+    logInput("initialize", {
+      preset: 1,
+      name: "Test USD",
+      symbol: "TUSD",
+      decimals: 6,
+      supplyCap: SUPPLY_CAP,
+      mint: mint.publicKey,
+      config: configPda,
+      authority: payer.publicKey,
+    });
     const initSig = await coreProgram.methods
       .initialize({
         preset: 1,
@@ -101,6 +114,7 @@ describe("SSS-1 Stablecoin", () => {
       })
       .rpc();
     reportTx("SSS-1", "initializes an SSS-1 stablecoin", "initialize", initSig);
+    logOutput("initialize", { signature: initSig });
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.preset).to.equal(1);
@@ -112,9 +126,16 @@ describe("SSS-1 Stablecoin", () => {
     expect(config.authority.toBase58()).to.equal(payer.publicKey.toBase58());
     expect(config.mint.toBase58()).to.equal(mint.publicKey.toBase58());
     expect(config.adminCount).to.equal(1);
+    logOutput("initialize (state)", {
+      preset: config.preset,
+      supplyCap: config.supplyCap,
+      totalMinted: config.totalMinted,
+      totalBurned: config.totalBurned,
+    });
   });
 
   it("grants minter role", async () => {
+    logAction("Granting minter role", { config: configPda, grantee: minter.publicKey, role: "minter" });
     await grantRole(
       coreProgram,
       payer,
@@ -135,6 +156,7 @@ describe("SSS-1 Stablecoin", () => {
       minter.publicKey.toBase58()
     );
     expect(roleAccount.role).to.deep.include({ minter: {} });
+    logOutput("grant_role", { roleAccount: minterRolePda.toBase58(), role: "minter" });
   });
 
   it("mints tokens to a recipient", async () => {
@@ -151,6 +173,7 @@ describe("SSS-1 Stablecoin", () => {
       ROLE_MINTER
     );
 
+    logInput("mint_tokens", { amount: MINT_AMOUNT, to: recipientAta, minter: minter.publicKey });
     const sig = await coreProgram.methods
       .mintTokens(MINT_AMOUNT)
       .accountsPartial({
@@ -165,6 +188,7 @@ describe("SSS-1 Stablecoin", () => {
       .signers([minter])
       .rpc();
     reportTx("SSS-1", "mints tokens to a recipient", "mint_tokens", sig);
+    logOutput("mint_tokens", { signature: sig });
 
     // Wait for confirmation before reading balance (validator may lag)
     await connection.confirmTransaction(sig, "confirmed");
@@ -174,6 +198,7 @@ describe("SSS-1 Stablecoin", () => {
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.totalMinted.toString()).to.equal(MINT_AMOUNT.toString());
+    logOutput("mint_tokens (result)", { recipientBalance: balance.toString(), totalMinted: config.totalMinted.toString() });
   });
 
   it("enforces supply cap", async () => {
@@ -183,6 +208,7 @@ describe("SSS-1 Stablecoin", () => {
       minter.publicKey,
       ROLE_MINTER
     );
+    logInput("mint_tokens (expect fail)", { amount: overCapAmount, supplyCap: SUPPLY_CAP, expectedError: "SupplyCapExceeded" });
 
     try {
       await coreProgram.methods
@@ -201,6 +227,7 @@ describe("SSS-1 Stablecoin", () => {
       expect.fail("Should have thrown SupplyCapExceeded");
     } catch (err: any) {
       expect(err.toString()).to.include("SupplyCapExceeded");
+      logOutput("mint_tokens (rejected)", { error: "SupplyCapExceeded as expected" });
     }
   });
 
@@ -219,6 +246,7 @@ describe("SSS-1 Stablecoin", () => {
       burner.publicKey,
       ROLE_BURNER
     );
+    logInput("burn_tokens", { amount: burnAmount, from: recipientAta });
 
     const burnSig = await coreProgram.methods
       .burnTokens(burnAmount)
@@ -233,6 +261,7 @@ describe("SSS-1 Stablecoin", () => {
       .signers([burner])
       .rpc();
     reportTx("SSS-1", "grants burner role and burns tokens", "burn_tokens", burnSig);
+    logOutput("burn_tokens", { signature: burnSig });
 
     await connection.confirmTransaction(burnSig, "confirmed");
 
@@ -241,6 +270,7 @@ describe("SSS-1 Stablecoin", () => {
 
     const config = await fetchConfig(coreProgram, configPda);
     expect(config.totalBurned.toString()).to.equal(burnAmount.toString());
+    logOutput("burn_tokens (result)", { recipientBalance: balance.toString(), totalBurned: config.totalBurned.toString() });
   });
 
   it("freezes and thaws a token account", async () => {
@@ -257,6 +287,7 @@ describe("SSS-1 Stablecoin", () => {
       freezer.publicKey,
       ROLE_FREEZER
     );
+    logAction("Freezing account", { tokenAccount: recipientAta });
 
     await coreProgram.methods
       .freezeAccount()
@@ -270,6 +301,7 @@ describe("SSS-1 Stablecoin", () => {
       })
       .signers([freezer])
       .rpc();
+    logOutput("freeze_account", { tokenAccount: recipientAta });
 
     // Verify frozen: minting to frozen account should still work
     // (freeze only blocks transfers by the owner, not CPI mints)
@@ -287,6 +319,7 @@ describe("SSS-1 Stablecoin", () => {
       })
       .signers([freezer])
       .rpc();
+    logOutput("thaw_account", { tokenAccount: recipientAta });
   });
 
   it("pauses and unpauses operations", async () => {
@@ -303,6 +336,7 @@ describe("SSS-1 Stablecoin", () => {
       pauser.publicKey,
       ROLE_PAUSER
     );
+    logAction("Pausing operations", { config: configPda });
 
     await coreProgram.methods
       .pause()
@@ -316,6 +350,7 @@ describe("SSS-1 Stablecoin", () => {
 
     let config = await fetchConfig(coreProgram, configPda);
     expect(config.paused).to.equal(1);
+    logOutput("pause", { config: configPda, paused: config.paused });
 
     // Minting while paused should fail
     const [minterRolePda] = deriveRolePda(
@@ -340,8 +375,10 @@ describe("SSS-1 Stablecoin", () => {
       expect.fail("Should have thrown Paused");
     } catch (err: any) {
       expect(err.toString()).to.include("Paused");
+      logOutput("mint_tokens (rejected, paused)", { error: "Paused as expected" });
     }
 
+    logAction("Unpausing operations");
     await coreProgram.methods
       .unpause()
       .accountsPartial({
@@ -354,6 +391,7 @@ describe("SSS-1 Stablecoin", () => {
 
     config = await fetchConfig(coreProgram, configPda);
     expect(config.paused).to.equal(0);
+    logOutput("unpause", { config: configPda, paused: config.paused });
   });
 
   it("seizes tokens via permanent delegate", async () => {
@@ -378,6 +416,7 @@ describe("SSS-1 Stablecoin", () => {
       seizer.publicKey,
       ROLE_SEIZER
     );
+    logInput("seize", { amount: seizeAmount, from: recipientAta, to: treasuryAta });
 
     const balanceBefore = await getTokenBalance(connection, recipientAta);
 
@@ -395,6 +434,7 @@ describe("SSS-1 Stablecoin", () => {
       .signers([seizer])
       .rpc();
     reportTx("SSS-1", "seizes tokens via permanent delegate", "seize", seizeSig);
+    logOutput("seize", { signature: seizeSig });
 
     await connection.confirmTransaction(seizeSig, "confirmed");
 
@@ -405,6 +445,11 @@ describe("SSS-1 Stablecoin", () => {
       seizeAmount.toString()
     );
     expect(treasuryBalance.toString()).to.equal(seizeAmount.toString());
+    logOutput("seize (result)", {
+      recipientBalanceBefore: balanceBefore.toString(),
+      recipientBalanceAfter: balanceAfter.toString(),
+      treasuryBalance: treasuryBalance.toString(),
+    });
   });
 
   it("revokes minter role", async () => {
@@ -414,6 +459,7 @@ describe("SSS-1 Stablecoin", () => {
       ROLE_MINTER
     );
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
+    logAction("Revoking minter role", { roleAccount: minterRolePda, role: "minter" });
 
     await coreProgram.methods
       .revokeRole()
@@ -443,6 +489,7 @@ describe("SSS-1 Stablecoin", () => {
       expect.fail("Should have thrown because role was revoked");
     } catch (err: any) {
       expect(err).to.exist;
+      logOutput("mint_tokens (rejected)", { error: "Role revoked as expected" });
     }
   });
 
@@ -451,6 +498,7 @@ describe("SSS-1 Stablecoin", () => {
     await airdropSol(connection, newAuthority.publicKey, 5);
 
     const [adminRolePda] = deriveRolePda(configPda, payer.publicKey, ROLE_ADMIN);
+    logInput("propose_authority", { currentAuthority: payer.publicKey, newAuthority: newAuthority.publicKey });
 
     // Propose
     await coreProgram.methods
@@ -468,6 +516,7 @@ describe("SSS-1 Stablecoin", () => {
     expect(config.pendingAuthority.toBase58()).to.equal(
       newAuthority.publicKey.toBase58()
     );
+    logOutput("propose_authority", { pendingAuthority: config.pendingAuthority });
 
     // Accept
     const [newAdminRolePda] = deriveRolePda(
@@ -494,5 +543,6 @@ describe("SSS-1 Stablecoin", () => {
       newAuthority.publicKey.toBase58()
     );
     expect(config.hasPendingAuthority).to.equal(0);
+    logOutput("accept_authority", { newAuthority: config.authority });
   });
 });
