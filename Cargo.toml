@@ -1,7 +1,5 @@
 [workspace]
 members = ["programs/*", "cli"]
-# trident-tests excluded: heavy deps + git patch cause cargo resolution/fetch to hang.
-# To run Trident: cd trident-tests && cargo run --bin fuzz_0 (standalone)
 resolver = "2"
 
 [profile.release]

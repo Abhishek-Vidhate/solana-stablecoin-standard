@@ -104,30 +104,28 @@ pub fn remove(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<()>
     Ok(())
 }
 
-pub fn check(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<()> {
+/// Check if address is blacklisted. Returns (blacklisted, message). Used by CLI and TUI.
+pub fn check_result(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<(bool, String)> {
     let mint = parse_pubkey(mint_str)?;
     let address = parse_pubkey(address_str)?;
     let (blacklist_pda, _) = derive_blacklist_pda(&mint, &address);
 
     match ctx.client.get_account(&blacklist_pda) {
-        Ok(_account) => {
-            println!(
-                "{} Address {} is {}",
-                "!".red().bold(),
-                address_str,
-                "BLACKLISTED".red().bold()
-            );
-            print_field("Blacklist PDA", &blacklist_pda.to_string());
-        }
-        Err(_) => {
-            println!(
-                "{} Address {} is {}",
-                "✓".green().bold(),
-                address_str,
-                "not blacklisted".green()
-            );
-        }
+        Ok(_) => Ok((true, format!("{} is BLACKLISTED", address))),
+        Err(_) => Ok((false, format!("{} is not blacklisted", address))),
     }
+}
 
+pub fn check(ctx: &CliContext, mint_str: &str, address_str: &str) -> Result<()> {
+    let (blacklisted, _msg) = check_result(ctx, mint_str, address_str)?;
+    if blacklisted {
+        let mint = parse_pubkey(mint_str)?;
+        let address = parse_pubkey(address_str)?;
+        let (blacklist_pda, _) = derive_blacklist_pda(&mint, &address);
+        println!("{} Address {} is {}", "!".red().bold(), address_str, "BLACKLISTED".red().bold());
+        print_field("Blacklist PDA", &blacklist_pda.to_string());
+    } else {
+        println!("{} Address {} is {}", "✓".green().bold(), address_str, "not blacklisted".green());
+    }
     Ok(())
 }

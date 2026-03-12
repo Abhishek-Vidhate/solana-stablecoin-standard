@@ -151,7 +151,7 @@ curl -X POST http://localhost:3000/operations/mint \
 - **Token-2022 native:** MetadataPointer, PermanentDelegate, TransferHook, DefaultAccountState, ConfidentialTransferMint, TransferFeeConfig
 - **Pyth oracle:** Recommended for collateralized preset extensions; SDK `oracle` module with `PRICE_FEED_REGISTRY`, staleness checks. See [ARCHITECTURE.md#oracle-fields--pyth-integration](docs/ARCHITECTURE.md#oracle-fields--pyth-integration).
 
-**Differentiators:** Zero-copy config, SSS-4 (transfer fees), two-step authority, sender blacklist fix, Docker, Trident fuzz. See [ARCHITECTURE.md#differentiators](docs/ARCHITECTURE.md#differentiators).
+**Differentiators:** Zero-copy config, SSS-4 (transfer fees), two-step authority, sender blacklist fix, Docker. See [ARCHITECTURE.md#differentiators](docs/ARCHITECTURE.md#differentiators). For Trident + Token-2022 compatibility, see [TRIDENT_AND_TOKEN2022.md](docs/TRIDENT_AND_TOKEN2022.md).
 
 ## Program IDs
 
@@ -170,7 +170,6 @@ sdk/                 # TypeScript SDK (@abhishek-vidhate/sss-token)
 cli/                 # Rust CLI (sss-token, clap) — includes interactive TUI
 backend/             # Express REST API
 tests/               # Integration tests (ts-mocha)
-trident-tests/       # Trident fuzz + proptest
 docs/                # Documentation
 example/
   frontend/          # Next.js web UI (optional demo; uses SDK + backend API)
@@ -189,6 +188,7 @@ example/
 | [Operations Runbook](docs/OPERATIONS.md) | Operator procedures for deployment and daily operations |
 | [Compliance](docs/COMPLIANCE.md) | Regulatory architecture (GENIUS Act, MiCA) |
 | [API Reference](docs/API.md) | Backend REST endpoints, authentication, Docker setup |
+| [Trident & Token-2022](docs/TRIDENT_AND_TOKEN2022.md) | Honest assessment of Trident compatibility with Token-2022 |
 
 ## Tech Stack
 
@@ -198,7 +198,7 @@ example/
 | SDK | TypeScript, @coral-xyz/anchor, @solana/spl-token |
 | CLI | Rust, clap, solana-client, spl-token-2022 |
 | Backend | Express, Zod, Winston, Helmet |
-| Tests | ts-mocha, Chai; Trident + proptest |
+| Tests | ts-mocha, Chai |
 | Deployment | Docker, docker-compose |
 
 ## License

@@ -4,6 +4,56 @@ use anyhow::{Context, Result};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, signer::Signer};
 
+/// Config file format for default mint persistence (.sss-config.json).
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct SssConfigFile {
+    pub mint: Option<String>,
+}
+
+/// Load default mint from .sss-config.json. Searches: SSS_CONFIG env, ./.sss-config.json, ~/.config/sss/sss-config.json.
+pub fn load_default_mint() -> Option<String> {
+    let paths: Vec<PathBuf> = [
+        std::env::var("SSS_CONFIG").ok().map(PathBuf::from),
+        Some(PathBuf::from(".sss-config.json")),
+        dirs::config_dir().map(|d| d.join("sss").join("sss-config.json")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    for path in paths {
+        if path.exists() {
+            if let Ok(contents) = std::fs::read_to_string(&path) {
+                if let Ok(cfg) = serde_json::from_str::<SssConfigFile>(&contents) {
+                    return cfg.mint;
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Save mint to config file. Uses SSS_CONFIG env or ./.sss-config.json.
+#[allow(dead_code)]
+pub fn save_default_mint(mint: &str) -> Result<()> {
+    let path = std::env::var("SSS_CONFIG")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(".sss-config.json"));
+
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+
+    let cfg = SssConfigFile {
+        mint: Some(mint.to_string()),
+    };
+    let contents = serde_json::to_string_pretty(&cfg)?;
+    std::fs::write(&path, contents).with_context(|| format!("Failed to write config to {}", path.display()))?;
+    Ok(())
+}
+
 pub struct CliContext {
     pub client: RpcClient,
     pub payer: Keypair,

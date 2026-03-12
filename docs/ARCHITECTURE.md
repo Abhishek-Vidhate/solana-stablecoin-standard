@@ -325,7 +325,6 @@ Compared to reference implementations (PR#6, PR#19), this SSS implementation add
 | **Two-step authority transfer** | `propose_authority` / `accept_authority` prevents accidental lockout; competitors use single-step. |
 | **Sender blacklist fix** | Transfer hook derives sender PDA from **owner** in account data, not delegate; fixes delegate bypass (C-1). |
 | **Docker** | `docker-compose` and `Dockerfile` for backend deployment; competitors lack containerized setup. |
-| **Trident fuzz binary** | Real Trident 0.12 with on-chain-style transaction flows and supply invariant; competitors have proptest only. |
 
 ---
 

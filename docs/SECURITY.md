@@ -48,5 +48,5 @@ All arithmetic operations (supply calculations, mint quotas, transfer fee percen
 
 Before mainnet deployment, the SSS codebase should undergo:
 1. Formal Verification of the RBAC PDA derivations.
-2. Property-based Fuzz Testing (via Trident) focusing on the `sss-transfer-hook` bounds.
+2. Property-based and integration testing (LiteSVM, Anchor tests) focusing on the `sss-transfer-hook` bounds. See [TRIDENT_AND_TOKEN2022.md](TRIDENT_AND_TOKEN2022.md) for Trident + Token-2022 compatibility.
 3. Review by established Solana security firms (OtterSec, Neodyme, or Zellic).

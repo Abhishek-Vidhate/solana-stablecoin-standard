@@ -1,6 +1,7 @@
 pub mod audit_log;
 pub mod blacklist;
 pub mod burn;
+pub mod confidential;
 pub mod fees;
 pub mod freeze;
 pub mod holders;

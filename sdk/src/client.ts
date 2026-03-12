@@ -42,6 +42,10 @@ import { createSss3MintTransaction } from "./presets/sss3";
 import { createSss4MintTransaction } from "./presets/sss4";
 import * as coreIx from "./instructions/core";
 import * as hookIx from "./instructions/hook";
+import {
+  createDepositInstruction,
+  createApplyPendingBalanceInstruction,
+} from "./confidential";
 
 import sssCoreIdl from "./idl/sss_core.json";
 import sssTransferHookIdl from "./idl/sss_transfer_hook.json";
@@ -509,6 +513,53 @@ export class SolanaStablecoin {
 
     isBlacklisted: (address: PublicKey): Promise<boolean> => {
       return this.isBlacklisted(address);
+    },
+  };
+
+  // ── Confidential Namespace (SSS-3) ──────────────────────────────────────
+
+  confidential = {
+    /**
+     * Deposit tokens from public balance to pending confidential balance.
+     * No ZK proofs required.
+     */
+    deposit: async (
+      tokenAccount: PublicKey,
+      amount: bigint,
+      decimals: number
+    ): Promise<TransactionSignature> => {
+      const provider = this.coreProgram.provider as AnchorProvider;
+      const owner = provider.publicKey;
+      const ix = createDepositInstruction(
+        tokenAccount,
+        this.mint,
+        owner,
+        amount,
+        decimals
+      );
+      return this.sendTx(new Transaction().add(ix));
+    },
+
+    /**
+     * Apply pending confidential balance to available.
+     * Requires expectedPendingBalanceCreditCounter (from on-chain state)
+     * and newDecryptableAvailableBalance (36-byte ciphertext from AeKey.encrypt).
+     * For full flow with key derivation, use `sss-token confidential apply-pending`.
+     */
+    applyPending: async (
+      tokenAccount: PublicKey,
+      expectedPendingBalanceCreditCounter: bigint,
+      newDecryptableAvailableBalance: Uint8Array
+    ): Promise<TransactionSignature> => {
+      const provider = this.coreProgram.provider as AnchorProvider;
+      const owner = provider.publicKey;
+      const ix = createApplyPendingBalanceInstruction(
+        tokenAccount,
+        owner,
+        expectedPendingBalanceCreditCounter,
+        newDecryptableAvailableBalance
+      );
+      return this.sendTx(new Transaction().add(ix));
     },
   };
 

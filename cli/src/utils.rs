@@ -76,7 +76,7 @@ pub fn preset_name(p: u8) -> &'static str {
     match p {
         1 => "SSS-1 (Basic Stablecoin)",
         2 => "SSS-2 (Compliance Stablecoin)",
-        3 => "SSS-3 (Yield-Bearing Stablecoin)",
+        3 => "SSS-3 (Confidential Stablecoin)",
         4 => "SSS-4 (Full-Featured Stablecoin)",
         _ => "Unknown",
     }

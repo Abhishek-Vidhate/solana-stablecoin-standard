@@ -1,6 +1,6 @@
 //! Terminal UI for live monitoring and operations. Tabs: Dashboard, Config, Roles, Blacklist,
-//! Events, Fees (SSS-4), Operations, Compliance.
-//! Press Tab to switch, r to refresh, q to quit.
+//! Holders, Events, Fees (SSS-4), Operations, Compliance.
+//! Press Tab to switch, r to refresh, ? for help, q to quit.
 //! On Operations/Compliance: select action with Up/Down, Enter to open form, fill fields, Enter to submit.
 use anyhow::{anyhow, Result};
 use chrono::Local;
@@ -21,8 +21,8 @@ use solana_sdk::pubkey::Pubkey;
 use std::io;
 use std::time::Duration;
 
-use crate::commands::{blacklist, burn, freeze, mint, pause, roles, seize, thaw};
-use crate::config::CliContext;
+use crate::commands::{blacklist, burn, freeze, holders, mint, pause, roles, seize, thaw};
+use crate::config::{self, CliContext};
 use crate::utils::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -31,6 +31,7 @@ enum Tab {
     Config,
     Roles,
     Blacklist,
+    Holders,
     Events,
     Fees,
     Operations,
@@ -38,11 +39,12 @@ enum Tab {
 }
 
 impl Tab {
-    const ALL: [Tab; 8] = [
+    const ALL: [Tab; 9] = [
         Tab::Dashboard,
         Tab::Config,
         Tab::Roles,
         Tab::Blacklist,
+        Tab::Holders,
         Tab::Events,
         Tab::Fees,
         Tab::Operations,
@@ -55,6 +57,7 @@ impl Tab {
             Tab::Config => "Config",
             Tab::Roles => "Roles",
             Tab::Blacklist => "Blacklist",
+            Tab::Holders => "Holders",
             Tab::Events => "Events",
             Tab::Fees => "Fees",
             Tab::Operations => "Operations",
@@ -68,15 +71,16 @@ impl Tab {
             Tab::Config => 1,
             Tab::Roles => 2,
             Tab::Blacklist => 3,
-            Tab::Events => 4,
-            Tab::Fees => 5,
-            Tab::Operations => 6,
-            Tab::Compliance => 7,
+            Tab::Holders => 4,
+            Tab::Events => 5,
+            Tab::Fees => 6,
+            Tab::Operations => 7,
+            Tab::Compliance => 8,
         }
     }
 
     fn from_index(i: usize) -> Tab {
-        Tab::ALL[i % 8]
+        Tab::ALL[i % 9]
     }
 }
 
@@ -128,14 +132,16 @@ impl Op {
 enum ComplianceOp {
     AddBlacklist,
     RemoveBlacklist,
+    CheckBlacklist,
     GrantRole,
     RevokeRole,
 }
 
 impl ComplianceOp {
-    const ALL: [ComplianceOp; 4] = [
+    const ALL: [ComplianceOp; 5] = [
         ComplianceOp::AddBlacklist,
         ComplianceOp::RemoveBlacklist,
+        ComplianceOp::CheckBlacklist,
         ComplianceOp::GrantRole,
         ComplianceOp::RevokeRole,
     ];
@@ -143,6 +149,7 @@ impl ComplianceOp {
         match self {
             ComplianceOp::AddBlacklist => "Add to blacklist",
             ComplianceOp::RemoveBlacklist => "Remove from blacklist",
+            ComplianceOp::CheckBlacklist => "Check address",
             ComplianceOp::GrantRole => "Grant role",
             ComplianceOp::RevokeRole => "Revoke role",
         }
@@ -151,6 +158,7 @@ impl ComplianceOp {
         match self {
             ComplianceOp::AddBlacklist => &["Address (pubkey)", "Reason"],
             ComplianceOp::RemoveBlacklist => &["Address (pubkey)"],
+            ComplianceOp::CheckBlacklist => &["Address (pubkey)"],
             ComplianceOp::GrantRole => &["Address (pubkey)", "Role (admin/minter/...)"],
             ComplianceOp::RevokeRole => &["Address (pubkey)", "Role (admin/minter/...)"],
         }
@@ -160,6 +168,7 @@ impl ComplianceOp {
 enum FormState {
     Operation { op: Op, field_idx: usize, values: Vec<String> },
     Compliance { op: ComplianceOp, field_idx: usize, values: Vec<String> },
+    BlacklistCheck { address: String },
 }
 
 struct RoleStatus {
@@ -173,13 +182,21 @@ struct EventEntry {
     message: String,
 }
 
+struct HolderEntry {
+    token_account: Pubkey,
+    owner: Pubkey,
+    amount: u64,
+}
+
 struct TuiState {
     config_data: Option<ParsedConfig>,
     roles: Vec<RoleStatus>,
+    holders: Vec<HolderEntry>,
     events: Vec<EventEntry>,
     selected_index: usize,
     error_message: Option<String>,
     form: Option<FormState>,
+    help_open: bool,
 }
 
 impl TuiState {
@@ -191,10 +208,12 @@ impl TuiState {
         Self {
             config_data: None,
             roles: Vec::new(),
+            holders: Vec::new(),
             events,
             selected_index: 0,
             error_message: None,
             form: None,
+            help_open: false,
         }
     }
 
@@ -212,15 +231,20 @@ impl TuiState {
         match tab {
             Tab::Roles => self.roles.len(),
             Tab::Events => self.events.len(),
+            Tab::Holders => self.holders.len().max(1),
             Tab::Operations => Op::ALL.len(),
             Tab::Compliance => ComplianceOp::ALL.len(),
+            Tab::Blacklist => 1, // Check address action
             _ => 0,
         }
     }
 }
 
 pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
-    let mut mint_str = mint_arg.map(String::from).unwrap_or_default();
+    let mut mint_str = mint_arg
+        .map(String::from)
+        .or_else(config::load_default_mint)
+        .unwrap_or_default();
     let editable = mint_arg.is_none();
 
     let mut state = TuiState::new();
@@ -248,8 +272,12 @@ pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
                 }
                 match key.code {
                     KeyCode::Char('q') => break,
+                    KeyCode::Char('?') => {
+                        state.help_open = !state.help_open;
+                    }
                     KeyCode::Esc => {
                         state.form = None;
+                        state.help_open = false;
                     }
                     KeyCode::Char('r') if state.form.is_none() => {
                         if let Ok(mint) = parse_pubkey(&mint_str) {
@@ -258,7 +286,8 @@ pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
                     }
                     key_code => {
                         if let Some(mut form) = state.form.take() {
-                            let (close, should_refresh) = handle_form_key(&mut form, key_code, ctx, &mint_str, &mut state);
+                            let (close, should_refresh) =
+                                handle_form_key(&mut form, key_code, ctx, mint_str.trim(), &mut state);
                             if !close {
                                 state.form = Some(form);
                             } else if should_refresh {
@@ -270,15 +299,15 @@ pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
                             match key_code {
                                 KeyCode::Tab => {
                                     if key.modifiers.contains(KeyModifiers::SHIFT) {
-                                        let idx = (tab.index() + 7) % 8;
+                                        let idx = (tab.index() + 8) % 9;
                                         tab = Tab::from_index(idx);
                                     } else {
-                                        tab = Tab::from_index((tab.index() + 1) % 8);
+                                        tab = Tab::from_index((tab.index() + 1) % 9);
                                     }
                                     state.selected_index = 0;
                                 }
                                 KeyCode::BackTab => {
-                                    tab = Tab::from_index((tab.index() + 7) % 8);
+                                    tab = Tab::from_index((tab.index() + 8) % 9);
                                     state.selected_index = 0;
                                 }
                                 KeyCode::Up => {
@@ -317,6 +346,10 @@ pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
                                             field_idx: 0,
                                             values,
                                         });
+                                    } else if tab == Tab::Blacklist && parse_pubkey(mint_str.trim()).is_ok() {
+                                        state.form = Some(FormState::BlacklistCheck {
+                                            address: String::new(),
+                                        });
                                     } else {
                                         state.error_message = None;
                                         if let Ok(mint) = parse_pubkey(&mint_str) {
@@ -348,9 +381,36 @@ fn handle_form_key(
     mint_str: &str,
     state: &mut TuiState,
 ) -> (bool, bool) {
-    let (fields, field_idx, values, is_operation) = match form {
-        FormState::Operation { op, field_idx, values } => (op.fields(), *field_idx, values, true),
-        FormState::Compliance { op, field_idx, values } => (op.fields(), *field_idx, values, false),
+    // Handle BlacklistCheck form separately
+    if let FormState::BlacklistCheck { ref mut address, .. } = form {
+        match key {
+            KeyCode::Char(c) => address.push(c),
+            KeyCode::Backspace => {
+                address.pop();
+            }
+            KeyCode::Tab | KeyCode::Enter => {
+                let res = blacklist::check_result(ctx, mint_str, address);
+                match res {
+                    Ok((_, msg)) => {
+                        state.push_event(&msg);
+                        return (true, false);
+                    }
+                    Err(e) => {
+                        state.error_message = Some(e.to_string());
+                        state.push_event(&format!("Error: {}", e));
+                        return (true, false);
+                    }
+                }
+            }
+            _ => {}
+        }
+        return (false, false);
+    }
+
+    let (fields, field_idx, values, form_type) = match form {
+        FormState::Operation { op, field_idx, values } => (op.fields(), *field_idx, values, 0u8),
+        FormState::Compliance { op, field_idx, values } => (op.fields(), *field_idx, values, 1u8),
+        FormState::BlacklistCheck { .. } => return (false, false),
     };
     match key {
         KeyCode::Char(c) => {
@@ -368,9 +428,10 @@ fn handle_form_key(
                 *match form {
                     FormState::Operation { field_idx, .. } => field_idx,
                     FormState::Compliance { field_idx, .. } => field_idx,
+                    _ => return (false, false),
                 } = field_idx + 1;
             } else {
-                let res = if is_operation {
+                let res = if form_type == 0 {
                     execute_operation(ctx, mint_str, form)
                 } else {
                     execute_compliance(ctx, mint_str, form)
@@ -441,6 +502,11 @@ fn execute_compliance(ctx: &CliContext, mint_str: &str, form: &FormState) -> Res
             let address = values.get(0).map(|s| s.as_str()).unwrap_or("");
             blacklist::remove_execute(ctx, mint_str, address)
         }
+        ComplianceOp::CheckBlacklist => {
+            let address = values.get(0).map(|s| s.as_str()).unwrap_or("");
+            let (_, msg) = blacklist::check_result(ctx, mint_str, address)?;
+            return Ok(msg);
+        }
         ComplianceOp::GrantRole => {
             let address = values.get(0).map(|s| s.as_str()).unwrap_or("");
             let role = values.get(1).map(|s| s.as_str()).unwrap_or("");
@@ -501,6 +567,23 @@ fn refresh(ctx: &CliContext, mint: &Pubkey, state: &mut TuiState) {
     }
     state.roles = roles;
     state.push_event("Roles refreshed");
+
+    // Fetch holders
+    match holders::fetch_holders(ctx, mint, None) {
+        Ok(h) => {
+            state.holders = h
+                .into_iter()
+                .map(|(ta, o, amt)| HolderEntry {
+                    token_account: ta,
+                    owner: o,
+                    amount: amt,
+                })
+                .collect();
+        }
+        Err(_) => {
+            state.holders.clear();
+        }
+    }
 }
 
 fn draw_ui(
@@ -543,7 +626,9 @@ fn draw_ui(
         chunks[1]
     };
 
-    if let Some(ref form) = state.form {
+    if state.help_open {
+        draw_help(f, content_area);
+    } else if let Some(ref form) = state.form {
         draw_form(f, form, mint_str, content_area);
     } else {
         draw_tab_content(f, mint_str, tab, state, editable, content_area);
@@ -597,6 +682,8 @@ fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect) {
     let hints = Line::from(vec![
         Span::styled(" Tab", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(": Switch tabs  "),
+        Span::styled("?", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw(": Help  "),
         Span::styled("r", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(": Refresh  "),
         Span::styled("Enter", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
@@ -637,7 +724,8 @@ fn draw_tab_content(
         Tab::Dashboard => draw_dashboard(f, state, area),
         Tab::Config => draw_config(f, state, area),
         Tab::Roles => draw_roles(f, state, area),
-        Tab::Blacklist => draw_blacklist(f, area),
+        Tab::Blacklist => draw_blacklist(f, mint_str, state, area),
+        Tab::Holders => draw_holders(f, state, area),
         Tab::Events => draw_events(f, state, area),
         Tab::Fees => draw_fees(f, state, area),
         Tab::Operations => draw_operations(f, state, area),
@@ -831,6 +919,34 @@ fn draw_roles(f: &mut Frame, state: &TuiState, area: ratatui::layout::Rect) {
 }
 
 fn draw_form(f: &mut Frame, form: &FormState, mint_str: &str, area: ratatui::layout::Rect) {
+    if let FormState::BlacklistCheck { address } = form {
+        let lines = vec![
+            Line::from(vec![
+                Span::styled(" Mint: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(short_key_str(mint_str.trim()), Style::default().fg(Color::Yellow)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Address (pubkey): ", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{}▌", address), Style::default().fg(Color::White)),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(
+                " Tab/Enter: check  Esc: cancel ",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(Span::styled(
+                " Check Blacklist ",
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ));
+        f.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: true }), area);
+        return;
+    }
+
     let (title, fields, field_idx, values) = match form {
         FormState::Operation { op, field_idx, values } => {
             (op.title(), op.fields(), *field_idx, values)
@@ -838,6 +954,7 @@ fn draw_form(f: &mut Frame, form: &FormState, mint_str: &str, area: ratatui::lay
         FormState::Compliance { op, field_idx, values } => {
             (op.title(), op.fields(), *field_idx, values)
         }
+        FormState::BlacklistCheck { .. } => return,
     };
     let mut lines = vec![
         Line::from(vec![
@@ -949,50 +1066,135 @@ fn draw_compliance(f: &mut Frame, state: &TuiState, area: ratatui::layout::Rect)
     f.render_widget(table, area);
 }
 
-fn draw_blacklist(f: &mut Frame, area: ratatui::layout::Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(7), Constraint::Min(0)])
-        .split(area);
-
-    let info_block = Block::default()
+fn draw_blacklist(f: &mut Frame, _mint_str: &str, state: &TuiState, area: ratatui::layout::Rect) {
+    let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Blue))
-        .title(Span::styled(" Blacklist Check ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
-    let info_lines = vec![
-        Line::from(""),
-        Line::from(vec![Span::styled(
-            "  Check whether an address is blacklisted (SSS-2, SSS-4).",
-            Style::default().fg(Color::White),
-        )]),
+        .title(Span::styled(" Blacklist ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+
+    let is_selected = state.selected_index == 0;
+    let row_style = if is_selected {
+        Style::default().add_modifier(Modifier::BOLD).bg(Color::DarkGray)
+    } else {
+        Style::default()
+    };
+
+    let header = Row::new(vec![
+        Cell::from("  #").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+        Cell::from("Action").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+    ])
+    .height(1)
+    .bottom_margin(1);
+
+    let rows = vec![
+        Row::new(vec![
+            Cell::from("  1").style(Style::default().fg(Color::DarkGray)),
+            Cell::from("Check address (blacklisted?)").style(Style::default().fg(Color::White)),
+        ])
+        .style(row_style)
+        .height(1),
+    ];
+
+    let table = Table::new(rows, [Constraint::Length(6), Constraint::Min(30)])
+        .header(header)
+        .block(block);
+    f.render_widget(table, area);
+
+    let hint = Paragraph::new(Line::from(vec![
+        Span::styled(" Press ", Style::default().fg(Color::DarkGray)),
+        Span::styled("Enter", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(" to check an address ", Style::default().fg(Color::DarkGray)),
+    ]));
+    let hint_area = ratatui::layout::Rect {
+        x: area.x,
+        y: area.y + area.height.saturating_sub(1),
+        width: area.width,
+        height: 1,
+    };
+    f.render_widget(hint, hint_area);
+}
+
+fn draw_holders(f: &mut Frame, state: &TuiState, area: ratatui::layout::Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Blue))
+        .title(Span::styled(" Holders ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+
+    let decimals = state.config_data.as_ref().map(|c| c.decimals).unwrap_or(6);
+
+    if state.holders.is_empty() {
+        let msg = Paragraph::new("No holders or press 'r' to refresh.")
+            .block(block)
+            .wrap(Wrap { trim: true });
+        f.render_widget(msg, area);
+        return;
+    }
+
+    let header = Row::new(vec![
+        Cell::from("  Token Account").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+        Cell::from("Owner").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+        Cell::from("Balance").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+    ])
+    .height(1)
+    .bottom_margin(1);
+
+    let rows: Vec<Row> = state
+        .holders
+        .iter()
+        .take(50)
+        .map(|h| {
+            Row::new(vec![
+                Cell::from(short_key(&h.token_account)),
+                Cell::from(short_key(&h.owner)),
+                Cell::from(format_amount(h.amount, decimals)),
+            ])
+            .height(1)
+        })
+        .collect();
+
+    let table = Table::new(rows, [Constraint::Length(18), Constraint::Length(18), Constraint::Length(16)])
+        .header(header)
+        .block(block);
+    f.render_widget(table, area);
+}
+
+fn draw_help(f: &mut Frame, parent: ratatui::layout::Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(Span::styled(" Help ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+
+    let lines = vec![
         Line::from(""),
         Line::from(vec![
-            Span::styled("  Seeds: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("[\"blacklist\", mint, address]", Style::default().fg(Color::Yellow)),
+            Span::styled("  Tab / Shift+Tab ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("Switch tabs"),
         ]),
+        Line::from(vec![
+            Span::styled("  r ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("Refresh data"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Enter ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("Select / Submit"),
+        ]),
+        Line::from(vec![
+            Span::styled("  Esc ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("Cancel form"),
+        ]),
+        Line::from(vec![
+            Span::styled("  q ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("Quit"),
+        ]),
+        Line::from(""),
     ];
-    f.render_widget(Paragraph::new(info_lines).block(info_block), chunks[0]);
 
-    let placeholder_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray))
-        .title(Span::styled(" Address Lookup ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
-    let placeholder_lines = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            "  [Interactive input coming in a future update]",
-            Style::default().fg(Color::DarkGray),
-        )),
-        Line::from(""),
-        Line::from(vec![Span::styled(
-            "  Use the CLI: sss-token blacklist check --mint <MINT> <ADDRESS>",
-            Style::default().fg(Color::Green),
-        )]),
-    ];
-    f.render_widget(
-        Paragraph::new(placeholder_lines).block(placeholder_block),
-        chunks[1],
-    );
+    let w = 40u16.min(parent.width);
+    let h = 12u16.min(parent.height);
+    let x = parent.x + parent.width.saturating_sub(w) / 2;
+    let y = parent.y + parent.height.saturating_sub(h) / 2;
+    let area = ratatui::layout::Rect { x, y, width: w, height: h };
+    f.render_widget(Paragraph::new(lines).block(block), area);
 }
 
 fn draw_events(f: &mut Frame, state: &TuiState, area: ratatui::layout::Rect) {

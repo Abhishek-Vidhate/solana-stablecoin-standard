@@ -6,12 +6,8 @@ use solana_sdk::pubkey::Pubkey;
 use crate::config::CliContext;
 use crate::utils;
 
-pub fn run(ctx: &CliContext, mint_str: &str, min_balance: Option<u64>) -> Result<()> {
-    let mint = utils::parse_pubkey(mint_str)?;
-
-    println!("Fetching token holders for mint {}...", mint);
-    println!();
-
+/// Fetch holders as (token_account, owner, amount). Used by CLI and TUI.
+pub fn fetch_holders(ctx: &CliContext, mint: &Pubkey, min_balance: Option<u64>) -> Result<Vec<(Pubkey, Pubkey, u64)>> {
     let filters = vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
         0,
         mint.to_bytes().to_vec(),
@@ -29,11 +25,6 @@ pub fn run(ctx: &CliContext, mint_str: &str, min_balance: Option<u64>) -> Result
     let accounts = ctx
         .client
         .get_program_accounts_with_config(&spl_token_2022::ID, config)?;
-
-    if accounts.is_empty() {
-        println!("No token holders found.");
-        return Ok(());
-    }
 
     let mut holders: Vec<(Pubkey, Pubkey, u64)> = Vec::new();
 
@@ -54,6 +45,21 @@ pub fn run(ctx: &CliContext, mint_str: &str, min_balance: Option<u64>) -> Result
     }
 
     holders.sort_by(|a, b| b.2.cmp(&a.2));
+    Ok(holders)
+}
+
+pub fn run(ctx: &CliContext, mint_str: &str, min_balance: Option<u64>) -> Result<()> {
+    let mint = utils::parse_pubkey(mint_str)?;
+
+    println!("Fetching token holders for mint {}...", mint);
+    println!();
+
+    let holders = fetch_holders(ctx, &mint, min_balance)?;
+
+    if holders.is_empty() {
+        println!("No token holders found.");
+        return Ok(());
+    }
 
     println!("{:<46} {:<46} {:>16}", "TOKEN ACCOUNT", "OWNER", "BALANCE");
     println!("{}", "-".repeat(110));

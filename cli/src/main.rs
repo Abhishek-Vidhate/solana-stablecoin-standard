@@ -38,7 +38,7 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize a new stablecoin
     Init {
-        #[arg(long, help = "Preset: 1, 2, 4 (or sss-1, sss-2, sss-4). Omit if using --config")]
+        #[arg(long, help = "Preset: 1, 2, 3, 4 (or sss-1, sss-2, sss-3, sss-4). Omit if using --config")]
         preset: Option<String>,
         #[arg(long, help = "Path to TOML config (alternative to preset/name/symbol)")]
         config: Option<String>,
@@ -160,6 +160,40 @@ pub enum Commands {
     Tui {
         #[arg(long, help = "Mint address to monitor (optional)")]
         mint: Option<String>,
+    },
+    /// SSS-3 confidential transfer operations
+    Confidential {
+        #[command(subcommand)]
+        action: ConfidentialAction,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ConfidentialAction {
+    /// Configure a token account for confidential transfers
+    ConfigureAccount {
+        #[arg(long)]
+        mint: String,
+        #[arg(long)]
+        account: String,
+    },
+    /// Deposit tokens from public balance to confidential pending balance
+    Deposit {
+        #[arg(long)]
+        mint: String,
+        #[arg(long)]
+        account: String,
+        #[arg(long)]
+        amount: u64,
+        #[arg(long, default_value_t = 6)]
+        decimals: u8,
+    },
+    /// Apply pending balance to available confidential balance
+    ApplyPending {
+        #[arg(long)]
+        mint: String,
+        #[arg(long)]
+        account: String,
     },
 }
 
@@ -383,6 +417,20 @@ async fn main() -> anyhow::Result<()> {
         )?,
         Commands::Status { mint } => commands::info::run(&ctx, &mint)?,
         Commands::Tui { mint } => commands::tui::run(&ctx, mint.as_deref())?,
+        Commands::Confidential { action } => match action {
+            ConfidentialAction::ConfigureAccount { mint, account } => {
+                commands::confidential::configure_account(&ctx, &mint, &account)?
+            }
+            ConfidentialAction::Deposit {
+                mint,
+                account,
+                amount,
+                decimals,
+            } => commands::confidential::deposit(&ctx, &mint, &account, amount, decimals)?,
+            ConfidentialAction::ApplyPending { mint, account } => {
+                commands::confidential::apply_pending(&ctx, &mint, &account)?
+            }
+        },
     }
 
     Ok(())

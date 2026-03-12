@@ -29,8 +29,16 @@ struct TomlConfig {
     #[serde(default)]
     enable_transfer_hook: bool,
     #[serde(default)]
+    enable_transfer_fee: bool,
+    #[serde(default)]
     #[allow(dead_code)]
     default_account_frozen: bool,
+    /// SSS-4: fee in basis points (0-10000)
+    #[serde(default)]
+    fee_bps: Option<u16>,
+    /// SSS-4: maximum fee per transfer in base units
+    #[serde(default)]
+    max_fee: Option<u64>,
 }
 
 fn default_decimals() -> u8 {
@@ -54,13 +62,15 @@ pub fn run(
     decimals: u8,
     supply_cap: Option<u64>,
 ) -> Result<()> {
-    let (preset_str, name_val, symbol_val, uri_val, decimals_val, supply_cap_val) =
+    let (preset_str, name_val, symbol_val, uri_val, decimals_val, supply_cap_val, fee_bps_val, max_fee_val) =
         if let Some(path) = config_path {
             let contents = std::fs::read_to_string(path)
                 .map_err(|e| anyhow::anyhow!("Failed to read config file '{}': {}", path, e))?;
             let cfg: TomlConfig = toml::from_str(&contents)
                 .map_err(|e| anyhow::anyhow!("Failed to parse TOML config '{}': {}", path, e))?;
-            let inferred = if cfg.enable_transfer_hook {
+            let inferred = if cfg.enable_transfer_hook && cfg.enable_transfer_fee {
+                "sss-4"
+            } else if cfg.enable_transfer_hook {
                 "sss-2"
             } else {
                 "sss-1"
@@ -74,6 +84,8 @@ pub fn run(
                 cfg.uri,
                 cfg.decimals,
                 cfg.supply_cap,
+                cfg.fee_bps,
+                cfg.max_fee,
             )
         } else {
             (
@@ -87,18 +99,15 @@ pub fn run(
                 uri.to_string(),
                 decimals,
                 supply_cap,
+                None,
+                None,
             )
         };
 
-    let preset_u8 = parse_preset(&preset_str)?;
+    let fee_bps = fee_bps_val.unwrap_or(0);
+    let max_fee = max_fee_val.unwrap_or(0);
 
-    if preset_u8 == 3 {
-        anyhow::bail!(
-            "SSS-3 (Private) initialization requires the TypeScript SDK for \
-             ConfidentialTransferMint extension setup. Use the SDK create() instead.\n\
-             See: docs/SSS-3.md"
-        );
-    }
+    let preset_u8 = parse_preset(&preset_str)?;
 
     let mint_kp = match mint_path {
         Some(p) => load_mint_keypair(p)?,
@@ -121,6 +130,8 @@ pub fn run(
         &mint,
         preset_u8,
         decimals_val,
+        fee_bps,
+        max_fee,
     )?;
 
     // 2. sss-core Initialize
@@ -136,8 +147,8 @@ pub fn run(
             enable_transfer_hook: enable_hook,
             default_account_frozen: default_frozen,
             oracle_feed_id: None,
-            transfer_fee_basis_points: if preset_u8 == 4 { Some(0) } else { None },
-            maximum_fee: if preset_u8 == 4 { Some(0) } else { None },
+            transfer_fee_basis_points: if preset_u8 == 4 { Some(fee_bps) } else { None },
+            maximum_fee: if preset_u8 == 4 { Some(max_fee) } else { None },
         },
     };
 
@@ -207,6 +218,8 @@ fn build_mint_instructions(
     mint: &Pubkey,
     preset: u8,
     decimals: u8,
+    fee_bps: u16,
+    max_fee: u64,
 ) -> Result<Vec<Instruction>> {
     use spl_token_2022::extension::ExtensionType;
 
@@ -218,6 +231,9 @@ fn build_mint_instructions(
     if preset == 4 {
         extensions.push(ExtensionType::TransferFeeConfig);
     }
+    if preset == 3 {
+        extensions.push(ExtensionType::ConfidentialTransferMint);
+    }
 
     let mint_len = ExtensionType::try_calculate_account_len::<spl_token_2022::state::Mint>(
         &extensions,
@@ -226,7 +242,7 @@ fn build_mint_instructions(
 
     let lamports = client.get_minimum_balance_for_rent_exemption(mint_len)?;
 
-    build_mint_instructions_impl(payer, mint, preset, decimals, mint_len, lamports)
+    build_mint_instructions_impl(payer, mint, preset, decimals, mint_len, lamports, fee_bps, max_fee)
 }
 
 fn build_mint_instructions_impl(
@@ -236,6 +252,8 @@ fn build_mint_instructions_impl(
     decimals: u8,
     mint_len: usize,
     lamports: u64,
+    fee_bps: u16,
+    max_fee: u64,
 ) -> Result<Vec<Instruction>> {
     let (config_pda, _) = derive_config_pda(mint);
 
@@ -256,6 +274,18 @@ fn build_mint_instructions_impl(
             &config_pda,
         )?,
     );
+
+    if preset == 3 {
+        ixs.push(
+            spl_token_2022::extension::confidential_transfer::instruction::initialize_mint(
+                &spl_token_2022::ID,
+                mint,
+                Some(config_pda),
+                true, // auto_approve_new_accounts
+                None, // auditor_elgamal_pubkey
+            )?,
+        );
+    }
 
     if preset == 2 || preset == 4 {
         ixs.push(
@@ -282,8 +312,8 @@ fn build_mint_instructions_impl(
                 mint,
                 Some(&config_pda),
                 Some(&config_pda),
-                0,
-                0,
+                fee_bps,
+                max_fee,
             )?,
         );
     }
