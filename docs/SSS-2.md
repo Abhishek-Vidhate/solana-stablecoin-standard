@@ -102,7 +102,7 @@ All seven roles are active in SSS-2:
 ## SDK Usage
 
 ```typescript
-import { SolanaStablecoin, Preset } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset } from "@stbr/sss-token";
 
 const { stablecoin, mintKeypair } = await SolanaStablecoin.create(
   connection,

@@ -6,7 +6,6 @@ import cors from "cors";
 import { logger } from "./services/logger";
 import { SolanaService } from "./services/solana";
 import { EventListener } from "./services/event-listener";
-import { requireApiKey } from "./middleware/auth";
 import { createRateLimiter } from "./middleware/rate-limit";
 
 import healthRouter from "./routes/health";
@@ -23,9 +22,9 @@ app.use(createRateLimiter(60_000, 30));
 
 app.use("/health", healthRouter);
 
-app.use("/operations", requireApiKey, operationsRouter);
-app.use("/compliance", requireApiKey, complianceRouter);
-app.use("/roles", requireApiKey, rolesRouter);
+app.use("/operations", operationsRouter);
+app.use("/compliance", complianceRouter);
+app.use("/roles", rolesRouter);
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const RPC_URL = process.env.SOLANA_RPC_URL ?? "http://localhost:8899";

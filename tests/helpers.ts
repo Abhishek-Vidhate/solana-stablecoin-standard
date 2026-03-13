@@ -81,14 +81,14 @@ function serializeForLog(value: unknown): unknown {
 /** Log test input (params, accounts) for transparency. */
 export function logInput(instruction: string, data: Record<string, unknown>) {
   const serialized = serializeForLog(data) as Record<string, unknown>;
-  console.log("  📥 INPUT  ", instruction);
+  console.log("  [INPUT]   ", instruction);
   console.log("     ", JSON.stringify(serialized, null, 2));
 }
 
 /** Log test output (tx sig, state) for transparency. */
 export function logOutput(instruction: string, data: Record<string, unknown>) {
   const serialized = serializeForLog(data) as Record<string, unknown>;
-  console.log("  📤 OUTPUT ", instruction);
+  console.log("  [OUTPUT]  ", instruction);
   console.log("     ", JSON.stringify(serialized, null, 2));
 }
 

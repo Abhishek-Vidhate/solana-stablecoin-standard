@@ -32,6 +32,9 @@ pub fn derive_extra_account_metas_pda(mint: &Pubkey) -> (Pubkey, u8) {
 // ── Parsing helpers ─────────────────────────────────────────────────
 
 pub fn parse_pubkey(s: &str) -> Result<Pubkey> {
+    if s.trim().is_empty() {
+        bail!("Address cannot be empty");
+    }
     s.parse::<Pubkey>()
         .map_err(|_| anyhow::anyhow!("Invalid base58 pubkey: {s}"))
 }

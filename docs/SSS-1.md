@@ -49,7 +49,7 @@ SSS-1 does **not** use TransferHook, DefaultAccountState, ConfidentialTransferMi
 ## SDK Usage
 
 ```typescript
-import { SolanaStablecoin, Preset } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset } from "@stbr/sss-token";
 
 const { stablecoin, mintKeypair, signature } = await SolanaStablecoin.create(
   connection,

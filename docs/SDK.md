@@ -1,11 +1,11 @@
-# SDK Reference — `@abhishek-vidhate/sss-token`
+# SDK Reference — `@stbr/sss-token`
 
 The TypeScript SDK provides a complete client for creating, managing, and interacting with SSS stablecoins. It wraps both on-chain programs (`sss-core` and `sss-transfer-hook`) behind a single `SolanaStablecoin` class.
 
 ## Installation
 
 ```bash
-npm install @abhishek-vidhate/sss-token
+npm install @stbr/sss-token
 ```
 
 **Peer dependencies:** `@solana/web3.js`, `@coral-xyz/anchor`, `@solana/spl-token`
@@ -17,7 +17,7 @@ npm install @abhishek-vidhate/sss-token
 ```typescript
 import { Connection, Keypair } from "@solana/web3.js";
 import { Wallet } from "@coral-xyz/anchor";
-import { SolanaStablecoin, Preset } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset } from "@stbr/sss-token";
 import { BN } from "bn.js";
 
 const connection = new Connection("https://api.devnet.solana.com", "confirmed");
@@ -44,7 +44,7 @@ console.log("Config PDA:", stablecoin.configPda.toBase58());
 
 ```typescript
 import { PublicKey } from "@solana/web3.js";
-import { SolanaStablecoin } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin } from "@stbr/sss-token";
 
 const stablecoin = SolanaStablecoin.load(
   connection,
@@ -311,7 +311,7 @@ import {
   deriveRolePda,
   deriveBlacklistPda,
   deriveExtraAccountMetasPda,
-} from "@abhishek-vidhate/sss-token";
+} from "@stbr/sss-token";
 
 // Config PDA: seeds = ["sss-config", mint]
 const [configPda, bump] = deriveConfigPda(mintPublicKey);
@@ -368,7 +368,7 @@ const [metasPda] = deriveExtraAccountMetasPda(mintPublicKey);
 The SDK automatically translates Anchor errors into typed `SssError` instances:
 
 ```typescript
-import { SssError } from "@abhishek-vidhate/sss-token";
+import { SssError } from "@stbr/sss-token";
 
 try {
   await stablecoin.mintTokens({ /* ... */ });
@@ -383,7 +383,7 @@ try {
 ## Custom Configuration Example
 
 ```typescript
-import { SolanaStablecoin, Preset, Role } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset, Role } from "@stbr/sss-token";
 import { BN } from "bn.js";
 
 // 1. Create an SSS-4 stablecoin with all options

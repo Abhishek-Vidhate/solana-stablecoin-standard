@@ -1,5 +1,5 @@
 import { Connection, PublicKey, Logs } from "@solana/web3.js";
-import { SSS_CORE_PROGRAM_ID } from "@abhishek-vidhate/sss-token";
+import { SSS_CORE_PROGRAM_ID } from "@stbr/sss-token";
 import { logger } from "./logger";
 
 export class EventListener {

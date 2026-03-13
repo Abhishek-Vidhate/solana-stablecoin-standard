@@ -11,7 +11,7 @@ This document provides step-by-step procedures for operating a stablecoin built 
 - Environment variables configured:
 
 ```bash
-export SOLANA_RPC_URL="https://api.mainnet-beta.solana.com"
+export SOLANA_RPC_URL="devnet url"
 export SOLANA_KEYPAIR="~/.config/solana/id.json"
 ```
 

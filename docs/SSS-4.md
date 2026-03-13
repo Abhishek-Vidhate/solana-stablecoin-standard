@@ -88,7 +88,7 @@ All seven roles are active in SSS-4:
 ## SDK Usage
 
 ```typescript
-import { SolanaStablecoin, Preset } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset } from "@stbr/sss-token";
 import { BN } from "@coral-xyz/anchor";
 
 // Deploy with 0 bps (zero-friction launch)

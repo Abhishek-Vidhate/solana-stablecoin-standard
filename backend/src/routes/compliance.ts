@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { PublicKey } from "@solana/web3.js";
 import { z } from "zod";
 import { SolanaService } from "../services/solana";
-import { deriveConfigPda } from "@abhishek-vidhate/sss-token";
+import { deriveConfigPda } from "@stbr/sss-token";
 import { logger } from "../services/logger";
 
 const router = Router();

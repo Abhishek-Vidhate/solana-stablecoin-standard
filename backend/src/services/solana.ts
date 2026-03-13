@@ -1,7 +1,7 @@
 import { Connection, Keypair } from "@solana/web3.js";
 import { Wallet } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
-import { SolanaStablecoin } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin } from "@stbr/sss-token";
 import fs from "fs";
 import { logger } from "./logger";
 

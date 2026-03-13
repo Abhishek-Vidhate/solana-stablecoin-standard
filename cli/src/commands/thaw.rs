@@ -14,7 +14,7 @@ pub fn execute(ctx: &CliContext, mint_str: &str, account_str: &str) -> Result<St
     let (freezer_role_pda, _) = derive_role_pda(&config_pda, &ctx.payer_pubkey(), 2);
 
     let ix_data = sss_core::instruction::ThawAccount {}.data();
-    let accounts = sss_core::accounts::ThawTokenAccount {
+    let mut accounts = sss_core::accounts::ThawTokenAccount {
         freezer: ctx.payer_pubkey(),
         config: config_pda,
         freezer_role: freezer_role_pda,
@@ -23,6 +23,12 @@ pub fn execute(ctx: &CliContext, mint_str: &str, account_str: &str) -> Result<St
         token_program: spl_token_2022::ID,
     }
     .to_account_metas(None);
+
+    for acc in &mut accounts {
+        if acc.pubkey.to_string() == "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" {
+            acc.pubkey = spl_token_2022::ID;
+        }
+    }
 
     let ix = Instruction {
         program_id: sss_core::ID,

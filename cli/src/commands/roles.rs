@@ -1,7 +1,7 @@
 use anchor_lang::{InstructionData, ToAccountMetas};
 use anyhow::Result;
 use colored::Colorize;
-use solana_client::rpc_filter::{Memcmp, RpcFilterType};
+use solana_client::rpc_filter::{Memcmp, MemcmpEncodedBytes, RpcFilterType};
 use solana_sdk::{instruction::Instruction, transaction::Transaction};
 
 use crate::config::CliContext;
@@ -110,7 +110,7 @@ pub fn list(ctx: &CliContext, mint_str: &str) -> Result<()> {
     // RoleAccount layout after 8-byte discriminator: config (32 bytes)
     let filters = vec![
         RpcFilterType::DataSize(131), // ROLE_SPACE
-        RpcFilterType::Memcmp(Memcmp::new_base58_encoded(8, config_pda.as_ref())),
+        RpcFilterType::Memcmp(Memcmp::new_raw_bytes(8, config_pda.as_ref().to_vec())),
     ];
 
     let accounts = ctx
@@ -119,6 +119,10 @@ pub fn list(ctx: &CliContext, mint_str: &str) -> Result<()> {
             &sss_core::ID,
             solana_client::rpc_config::RpcProgramAccountsConfig {
                 filters: Some(filters),
+                account_config: solana_client::rpc_config::RpcAccountInfoConfig {
+                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
         )?;

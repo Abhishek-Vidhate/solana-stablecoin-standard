@@ -11,7 +11,7 @@ graph TD
     subgraph "Off-Chain"
         CLI["CLI<br/>sss-token (Rust)"]
         Backend["Backend API<br/>Express + Zod"]
-        SDK["@abhishek-vidhate/sss-token<br/>TypeScript SDK"]
+        SDK["@stbr/sss-token<br/>TypeScript SDK"]
     end
 
     CLI --> Core
@@ -315,16 +315,15 @@ Measured on localnet with optimized release build:
 ---
 
 ## Differentiators
-
-Compared to reference implementations (PR#6, PR#19), this SSS implementation adds:
+This SSS implementation introduces the following advanced features and performance benefits:
 
 | Differentiator | Description |
 |---|---|
-| **Zero-copy config** | `StablecoinConfig` uses `AccountLoader` for significant CU reduction on reads; competitors use regular `Account`. |
-| **SSS-4 (Transfer Fees)** | Full preset 4 support: `TransferFeeConfig`, `update_transfer_fee`, `withdraw_withheld` in program, SDK, and CLI. |
-| **Two-step authority transfer** | `propose_authority` / `accept_authority` prevents accidental lockout; competitors use single-step. |
-| **Sender blacklist fix** | Transfer hook derives sender PDA from **owner** in account data, not delegate; fixes delegate bypass (C-1). |
-| **Docker** | `docker-compose` and `Dockerfile` for backend deployment; competitors lack containerized setup. |
+| **Zero-copy config** | `StablecoinConfig` uses `AccountLoader` for significant CU reduction on reads, avoiding standard Borsh heap allocations. |
+| **SSS-4 (Transfer Fees)** | Full preset 4 support: `TransferFeeConfig`, `update_transfer_fee`, `withdraw_withheld` in program, SDK, and CLI, modeled after Enterprise implementations like PayPal's PYUSD. |
+| **Two-step authority transfer** | `propose_authority` / `accept_authority` secures the treasury by preventing accidental lockouts associated with single-step transfers. |
+| **Sender blacklist fix** | Transfer hook derives sender PDA from **owner** in account data, not delegate; definitively fixing delegate bypass vulnerabilities. |
+| **Docker** | `docker-compose` and `Dockerfile` mapped for immediate containerized backend scaling safely as a non-root user. |
 
 ---
 
@@ -353,7 +352,7 @@ Fiat-backed stablecoins (USDC, PYUSD, USDT) validate peg off-chain via reserve a
 
 | Component | Technology | Purpose |
 |---|---|---|
-| **SDK** | TypeScript (`@abhishek-vidhate/sss-token`) | Instruction building, PDA derivation, preset creation, error translation |
+| **SDK** | TypeScript (`@stbr/sss-token`) | Instruction building, PDA derivation, preset creation, error translation |
 | **CLI** | Rust (clap 4) | Native binary; uses sss-core and sss-transfer-hook IDLs directly (not the SDK) |
 | **Backend** | Express + Zod + Winston | REST API with validation, rate limiting, API key auth; uses SDK |
 | **Docker** | docker-compose | Containerized backend deployment |

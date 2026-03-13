@@ -8,7 +8,6 @@ The SSS backend provides a REST API for programmatic access to stablecoin operat
 
 ```bash
 # Set environment variables
-export API_KEY="your-secure-api-key"
 export SOLANA_RPC_URL="https://api.devnet.solana.com"
 
 # Start the backend
@@ -37,20 +36,13 @@ npm run dev
 | Variable | Required | Default | Description |
 |---|:---:|---|---|
 | `PORT` | No | `3000` | Server listen port |
-| `API_KEY` | Yes | — | API key for authentication |
 | `SOLANA_RPC_URL` | No | `http://localhost:8899` | Solana RPC endpoint |
 | `KEYPAIR_PATH` | No | `~/.config/solana/id.json` | Path to operator keypair |
 | `WEBHOOK_URL` | No | — | URL for event webhooks |
 
 ## Authentication
 
-All `/operations` and `/compliance` endpoints require the `X-API-KEY` header. The key is validated using constant-time comparison.
-
-```bash
-curl -H "X-API-KEY: your-api-key" http://localhost:3000/operations/mint
-```
-
-The `/health` endpoint does not require authentication.
+Currently, the SSS Backend API does **not** require authentication for its operational endpoints. It is intended for use within a trusted network environment or as a component of a larger system where access control is managed at the network or infrastructure level.
 
 ## Rate Limiting
 
@@ -87,7 +79,7 @@ Returns server health status and Solana slot.
 
 ### Operations
 
-All operations endpoints require `X-API-KEY` header.
+Operational endpoints provide programmatic access to stablecoin instructions.
 
 #### `POST /operations/mint`
 
@@ -106,7 +98,6 @@ Mint tokens to a recipient address.
 ```bash
 curl -X POST http://localhost:3000/operations/mint \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "recipient": "9yAB...def",
@@ -140,7 +131,6 @@ Burn tokens from a token account.
 ```bash
 curl -X POST http://localhost:3000/operations/burn \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "from": "8DEF...xyz",
@@ -164,7 +154,6 @@ Freeze a token account.
 ```bash
 curl -X POST http://localhost:3000/operations/freeze \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "account": "8DEF...xyz"
@@ -220,7 +209,6 @@ Force-transfer tokens via PermanentDelegate (SSS-2/4).
 ```bash
 curl -X POST http://localhost:3000/operations/seize \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "from": "8DEF...xyz",
@@ -246,7 +234,6 @@ Update transfer fee (SSS-4 only). Requires Admin role.
 ```bash
 curl -X POST http://localhost:3000/operations/fees/update \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "basisPoints": 10,
@@ -273,7 +260,6 @@ Withdraw withheld transfer fees to a destination (SSS-4 only). Requires Admin ro
 ```bash
 curl -X POST http://localhost:3000/operations/fees/withdraw \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "destination": "9GHI...uvw"
@@ -286,7 +272,7 @@ curl -X POST http://localhost:3000/operations/fees/withdraw \
 
 ### Compliance
 
-All compliance endpoints require `X-API-KEY` header.
+Compliance endpoints manage blacklisting and audit trails.
 
 #### `POST /compliance/blacklist/add`
 
@@ -305,7 +291,6 @@ Add an address to the blacklist.
 ```bash
 curl -X POST http://localhost:3000/compliance/blacklist/add \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: your-api-key" \
   -d '{
     "mint": "7xKL...abc",
     "address": "BAD1...xyz",
@@ -377,7 +362,7 @@ All error responses follow a consistent format:
 |---|---|
 | 200 | Success |
 | 400 | Bad request (validation error or on-chain error) |
-| 401 | Missing or invalid `X-API-KEY` |
+| 401 | Not Used |
 | 429 | Rate limit exceeded |
 | 500 | Server misconfiguration |
 | 503 | Solana RPC unavailable |
@@ -395,7 +380,6 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-      API_KEY: ${API_KEY:-change-me}
       SOLANA_RPC_URL: ${SOLANA_RPC_URL:-http://host.docker.internal:8899}
       KEYPAIR_PATH: /app/deployer.json
     volumes:

@@ -62,15 +62,15 @@ export function buildMintTokensIx(
   const [configPda] = deriveConfigPda(opts.mint);
   const [minterRole] = deriveRolePda(configPda, opts.minter, Role.Minter);
 
-  const accounts: Record<string, PublicKey> = {
+  const accounts: any = {
     minter: opts.minter,
     config: configPda,
     minterRole,
     mint: opts.mint,
     to: opts.to,
-    // Option<Account>: pass program ID when no oracle; program treats it as None
-    priceUpdate: opts.priceUpdate ?? program.programId,
     tokenProgram: TOKEN_2022_PROGRAM_ID,
+    // priceUpdate is now at the END of the struct in Rust
+    priceUpdate: opts.priceUpdate || null,
   };
 
   return m(program)

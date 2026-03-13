@@ -18,7 +18,7 @@ pub fn execute(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> R
         get_associated_token_address_with_program_id(&to_wallet, &mint, &spl_token_2022::ID);
 
     let ix_data = sss_core::instruction::MintTokens { amount }.data();
-    let accounts = sss_core::accounts::MintTokens {
+    let mut accounts = sss_core::accounts::MintTokens {
         minter: ctx.payer_pubkey(),
         config: config_pda,
         minter_role: minter_role_pda,
@@ -28,6 +28,16 @@ pub fn execute(ctx: &CliContext, mint_str: &str, to_str: &str, amount: u64) -> R
         token_program: spl_token_2022::ID,
     }
     .to_account_metas(None);
+
+    // Anchor 0.29 ToAccountMetas codegen puts Option fields before Interface fields if declared that way,
+    // but the IDL and program decoder expects optional fields to be LAST (index 6, while token_program is at index 5).
+    accounts.swap(5, 6);
+
+    for acc in &mut accounts {
+        if acc.pubkey.to_string() == "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" {
+            acc.pubkey = spl_token_2022::ID;
+        }
+    }
 
     let ix = Instruction {
         program_id: sss_core::ID,

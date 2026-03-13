@@ -1,5 +1,4 @@
 //! Mint tokens instruction. Uses Pyth PriceUpdateV2 when config.has_oracle_feed is set.
-//! FUTURE: Switchboard V2 — add oracle_type in config and CPI to Switchboard feed when configured.
 
 use anchor_lang::prelude::*;
 #[cfg(feature = "cu-profile")]
@@ -47,10 +46,10 @@ pub struct MintTokens<'info> {
     )]
     pub to: InterfaceAccount<'info, TokenAccount>,
 
+    pub token_program: Interface<'info, TokenInterface>,
+
     /// Pyth PriceUpdateV2 account. Required when config.has_oracle_feed is set.
     pub price_update: Option<Account<'info, PriceUpdateV2>>,
-
-    pub token_program: Interface<'info, TokenInterface>,
 }
 
 pub fn handler_mint_tokens(ctx: Context<MintTokens>, amount: u64) -> Result<()> {

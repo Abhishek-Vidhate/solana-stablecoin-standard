@@ -1,36 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import WalletButton from "@/components/WalletButton";
+import { parseProgramError } from "@/lib/errors";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "";
 
 type OpResult = { success: true; signature: string } | { success: false; error: string };
 
 async function callApi(
   method: string,
   path: string,
-  body: Record<string, unknown> | null,
-  apiKey: string
+  body: Record<string, unknown> | null
 ): Promise<OpResult | { blacklisted?: boolean }> {
-  const key = apiKey || API_KEY;
-  if (!key) {
-    return { success: false, error: "API key required. Set NEXT_PUBLIC_API_KEY or enter below." };
-  }
   try {
     const opts: RequestInit = {
       method,
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": key,
       },
     };
     if (body && method === "POST") opts.body = JSON.stringify(body);
     const res = await fetch(`${API_BASE}${path}`, opts);
     const data = await res.json();
     if (!res.ok) {
-      return { success: false, error: data.error || data.message || String(res.status) };
+      return { success: false, error: parseProgramError(data.error || data.message || String(res.status)) };
     }
     return data;
   } catch (e) {
@@ -39,16 +33,14 @@ async function callApi(
 }
 
 export default function BlacklistPage() {
-  const [apiKey, setApiKey] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkResult, setCheckResult] = useState<boolean | null>(null);
-  const key = apiKey || API_KEY;
 
   const doAdd = async (mint: string, address: string, reason: string) => {
     setLoading(true);
     setResult(null);
-    const r = await callApi("POST", "/compliance/blacklist/add", { mint, address, reason }, key);
+    const r = await callApi("POST", "/compliance/blacklist/add", { mint, address, reason });
     setResult(
       r && "success" in r && r.success && "signature" in r
         ? `Added: ${r.signature}`
@@ -60,7 +52,7 @@ export default function BlacklistPage() {
   const doRemove = async (mint: string, address: string) => {
     setLoading(true);
     setResult(null);
-    const r = await callApi("POST", "/compliance/blacklist/remove", { mint, address }, key);
+    const r = await callApi("POST", "/compliance/blacklist/remove", { mint, address });
     setResult(
       r && "success" in r && r.success && "signature" in r
         ? `Removed: ${r.signature}`
@@ -73,7 +65,7 @@ export default function BlacklistPage() {
     setLoading(true);
     setResult(null);
     setCheckResult(null);
-    const r = await callApi("GET", `/compliance/status/${mint}/${address}`, null, key);
+    const r = await callApi("GET", `/compliance/status/${mint}/${address}`, null);
     if (r && "blacklisted" in r) {
       setCheckResult(r.blacklisted ?? null);
       setResult(null);
@@ -84,75 +76,59 @@ export default function BlacklistPage() {
   };
 
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
-        <h1 style={{ margin: 0 }}>Blacklist</h1>
-        <WalletMultiButton />
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Compliance <span className="solana-gradient">Blacklist</span></h1>
+        <WalletButton />
       </div>
-      <p style={{ color: "#666", marginBottom: "1.5rem" }}>
-        Add or remove addresses from the blacklist (SSS-2 and SSS-4 only). Check if an address is blacklisted.
+      
+      <p className="text-muted max-w-2xl">
+        Enforce regulatory compliance by managing blacklisted addresses for SSS-2 and SSS-4 tokens. 
+        Blacklisted addresses are restricted from transferring or receiving tokens.
       </p>
-
-      {!API_KEY && (
-        <div style={{ marginBottom: "1.5rem", maxWidth: "400px" }}>
-          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>API Key</label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter backend API key"
-            style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
-          />
-        </div>
-      )}
 
       {result && (
         <div
-          style={{
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            borderRadius: "6px",
-            background: result.startsWith("Added") || result.startsWith("Removed") ? "#e8f5e9" : "#ffebee",
-            color: result.startsWith("Added") || result.startsWith("Removed") ? "#2e7d32" : "#c62828",
-          }}
+          className={`p-4 rounded-xl border ${
+            result.startsWith("Added") || result.startsWith("Removed")
+              ? "bg-green-500/10 border-green-500/50 text-green-400"
+              : "bg-red-500/10 border-red-500/50 text-red-400"
+          }`}
         >
           {result}
         </div>
       )}
 
       {checkResult !== null && (
-        <div
-          style={{
-            padding: "1rem",
-            marginBottom: "1.5rem",
-            borderRadius: "6px",
-            background: "#e3f2fd",
-            color: "#1565c0",
-          }}
-        >
-          Address is {checkResult ? "blacklisted" : "not blacklisted"}.
+        <div className="p-4 rounded-xl border bg-blue-500/10 border-blue-500/50 text-blue-400 flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${checkResult ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+          <span className="text-sm font-medium">
+            Status: This address is {checkResult ? "currently BLACKLISTED" : "AUTHORIZED for transactions"}
+          </span>
         </div>
       )}
 
-      <div style={{ display: "grid", gap: "1.5rem", maxWidth: "500px" }}>
-        <div style={{ padding: "1rem", border: "1px solid #eee", borderRadius: "6px" }}>
-          <strong style={{ display: "block", marginBottom: "0.75rem" }}>Add to Blacklist</strong>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-12">
+        <div className="glass-card flex flex-col gap-4">
+          <h3 className="text-lg font-bold">Restrict Address</h3>
           <BlacklistForm
             action="add"
             onSubmit={(mint, address, reason) => doAdd(mint, address, reason || "compliance")}
             loading={loading}
           />
         </div>
-        <div style={{ padding: "1rem", border: "1px solid #eee", borderRadius: "6px" }}>
-          <strong style={{ display: "block", marginBottom: "0.75rem" }}>Remove from Blacklist</strong>
+        
+        <div className="glass-card flex flex-col gap-4">
+          <h3 className="text-lg font-bold">Pardon Address</h3>
           <BlacklistForm
             action="remove"
             onSubmit={(mint, address) => doRemove(mint, address)}
             loading={loading}
           />
         </div>
-        <div style={{ padding: "1rem", border: "1px solid #eee", borderRadius: "6px" }}>
-          <strong style={{ display: "block", marginBottom: "0.75rem" }}>Check Status</strong>
+
+        <div className="glass-card flex flex-col gap-4">
+          <h3 className="text-lg font-bold">Query Status</h3>
           <BlacklistForm
             action="check"
             onSubmit={(mint, address) => doCheck(mint, address)}
@@ -183,48 +159,46 @@ function BlacklistForm({
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div style={{ marginBottom: "0.5rem" }}>
-        <input
-          value={mint}
-          onChange={(e) => setMint(e.target.value)}
-          placeholder="Mint address"
-          required
-          style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
-        />
-      </div>
-      <div style={{ marginBottom: "0.5rem" }}>
-        <input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Address"
-          required
-          style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
-        />
-      </div>
-      {action === "add" && (
-        <div style={{ marginBottom: "0.5rem" }}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted uppercase tracking-wider">Mint Address</label>
           <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason"
-            style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc" }}
+            value={mint}
+            onChange={(e) => setMint(e.target.value)}
+            placeholder="Base58 address"
+            required
+            className="input-field text-sm"
           />
         </div>
-      )}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted uppercase tracking-wider">Target Address</label>
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Wallet to investigate"
+            required
+            className="input-field text-sm"
+          />
+        </div>
+        {action === "add" && (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted uppercase tracking-wider">Reason Code</label>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Sanctioned Account"
+              className="input-field text-sm"
+            />
+          </div>
+        )}
+      </div>
       <button
         type="submit"
         disabled={loading}
-        style={{
-          padding: "0.5rem 1rem",
-          borderRadius: "4px",
-          border: "1px solid #333",
-          background: "#333",
-          color: "#fff",
-          cursor: loading ? "not-allowed" : "pointer",
-        }}
+        className="btn-primary mt-2 disabled:opacity-50"
       >
-        {loading ? "..." : action === "add" ? "Add" : action === "remove" ? "Remove" : "Check"}
+        {loading ? "Processing..." : action === "add" ? "Confirm Restriction" : action === "remove" ? "Confirm Pardon" : "Run Query"}
       </button>
     </form>
   );

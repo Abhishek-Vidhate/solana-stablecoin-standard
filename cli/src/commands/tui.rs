@@ -19,7 +19,7 @@ use ratatui::{
 };
 use solana_sdk::pubkey::Pubkey;
 use std::io;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::commands::{blacklist, burn, freeze, holders, mint, pause, roles, seize, thaw};
 use crate::config::{self, CliContext};
@@ -169,6 +169,7 @@ enum FormState {
     Operation { op: Op, field_idx: usize, values: Vec<String> },
     Compliance { op: ComplianceOp, field_idx: usize, values: Vec<String> },
     BlacklistCheck { address: String },
+    MintAddress { address: String },
 }
 
 struct RoleStatus {
@@ -197,6 +198,7 @@ struct TuiState {
     error_message: Option<String>,
     form: Option<FormState>,
     help_open: bool,
+    last_refresh: Instant,
 }
 
 impl TuiState {
@@ -214,6 +216,7 @@ impl TuiState {
             error_message: None,
             form: None,
             help_open: false,
+            last_refresh: Instant::now(),
         }
     }
 
@@ -245,7 +248,6 @@ pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
         .map(String::from)
         .or_else(config::load_default_mint)
         .unwrap_or_default();
-    let editable = mint_arg.is_none();
 
     let mut state = TuiState::new();
 
@@ -263,103 +265,141 @@ pub fn run(ctx: &CliContext, mint_arg: Option<&str>) -> Result<()> {
     }
 
     loop {
-        terminal.draw(|f| draw_ui(f, ctx, &mint_str, &tab, &state, editable))?;
+        terminal.draw(|f| draw_ui(f, ctx, &mint_str, &tab, &state))?;
 
         if event::poll(Duration::from_millis(500))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind != KeyEventKind::Press {
                     continue;
                 }
-                match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('?') => {
-                        state.help_open = !state.help_open;
-                    }
-                    KeyCode::Esc => {
-                        state.form = None;
-                        state.help_open = false;
-                    }
-                    KeyCode::Char('r') if state.form.is_none() => {
-                        if let Ok(mint) = parse_pubkey(&mint_str) {
-                            refresh(ctx, &mint, &mut state);
+                if let Some(mut form) = state.form.take() {
+                    match key.code {
+                        KeyCode::Esc => {
+                            state.form = None;
+                            state.help_open = false;
+                        }
+                        key_code => {
+                            if let FormState::MintAddress { ref mut address } = form {
+                                match key_code {
+                                    KeyCode::Char(c) => {
+                                        address.push(c);
+                                        state.form = Some(form);
+                                    }
+                                    KeyCode::Backspace => {
+                                        address.pop();
+                                        state.form = Some(form);
+                                    }
+                                    KeyCode::Enter => {
+                                        mint_str = address.clone();
+                                        if let Ok(mint) = parse_pubkey(mint_str.trim()) {
+                                            refresh(ctx, &mint, &mut state);
+                                        } else {
+                                            state.error_message = Some("Invalid mint address".to_string());
+                                            state.push_event("Error: Invalid mint address");
+                                        }
+                                    }
+                                    _ => {
+                                        state.form = Some(form);
+                                    }
+                                }
+                            } else {
+                                let (close, should_refresh) =
+                                    handle_form_key(&mut form, key_code, ctx, mint_str.trim(), &mut state);
+                                if !close {
+                                    state.form = Some(form);
+                                } else if should_refresh {
+                                    if let Ok(mint) = parse_pubkey(mint_str.trim()) {
+                                        refresh(ctx, &mint, &mut state);
+                                    }
+                                }
+                            }
                         }
                     }
-                    key_code => {
-                        if let Some(mut form) = state.form.take() {
-                            let (close, should_refresh) =
-                                handle_form_key(&mut form, key_code, ctx, mint_str.trim(), &mut state);
-                            if !close {
-                                state.form = Some(form);
-                            } else if should_refresh {
-                                if let Ok(mint) = parse_pubkey(mint_str.trim()) {
+                } else {
+                    match key.code {
+                        KeyCode::Char('q') => break,
+                        KeyCode::Char('?') => {
+                            state.help_open = !state.help_open;
+                        }
+                        KeyCode::Esc => {
+                            state.help_open = false;
+                        }
+                        KeyCode::Char('r') => {
+                            if let Ok(mint) = parse_pubkey(&mint_str) {
+                                refresh(ctx, &mint, &mut state);
+                            }
+                        }
+                        KeyCode::Tab => {
+                            if key.modifiers.contains(KeyModifiers::SHIFT) {
+                                let idx = (tab.index() + 8) % 9;
+                                tab = Tab::from_index(idx);
+                            } else {
+                                tab = Tab::from_index((tab.index() + 1) % 9);
+                            }
+                            state.selected_index = 0;
+                        }
+                        KeyCode::BackTab => {
+                            tab = Tab::from_index((tab.index() + 8) % 9);
+                            state.selected_index = 0;
+                        }
+                        KeyCode::Up => {
+                            let max = state.list_len(tab);
+                            if max > 0 {
+                                state.selected_index = (state.selected_index + max - 1) % max;
+                            }
+                        }
+                        KeyCode::Down => {
+                            let max = state.list_len(tab);
+                            if max > 0 {
+                                state.selected_index = (state.selected_index + 1) % max;
+                            }
+                        }
+                        KeyCode::Char('m') => {
+                            state.form = Some(FormState::MintAddress {
+                                address: mint_str.clone(),
+                            });
+                        }
+                        KeyCode::Enter => {
+                            if mint_str.trim().is_empty() {
+                                state.form = Some(FormState::MintAddress {
+                                    address: String::new(),
+                                });
+                            } else if tab == Tab::Operations && parse_pubkey(mint_str.trim()).is_ok() {
+                                let op = Op::ALL[state.selected_index.min(Op::ALL.len() - 1)];
+                                let values = op.fields().iter().map(|_| String::new()).collect();
+                                state.form = Some(FormState::Operation {
+                                    op,
+                                    field_idx: 0,
+                                    values,
+                                });
+                            } else if tab == Tab::Compliance && parse_pubkey(mint_str.trim()).is_ok() {
+                                let cop = ComplianceOp::ALL[state.selected_index.min(ComplianceOp::ALL.len() - 1)];
+                                let values = cop.fields().iter().map(|_| String::new()).collect();
+                                state.form = Some(FormState::Compliance {
+                                    op: cop,
+                                    field_idx: 0,
+                                    values,
+                                });
+                            } else if tab == Tab::Blacklist && parse_pubkey(mint_str.trim()).is_ok() {
+                                state.form = Some(FormState::BlacklistCheck {
+                                    address: String::new(),
+                                });
+                            } else {
+                                state.error_message = None;
+                                if let Ok(mint) = parse_pubkey(&mint_str) {
                                     refresh(ctx, &mint, &mut state);
                                 }
                             }
-                        } else {
-                            match key_code {
-                                KeyCode::Tab => {
-                                    if key.modifiers.contains(KeyModifiers::SHIFT) {
-                                        let idx = (tab.index() + 8) % 9;
-                                        tab = Tab::from_index(idx);
-                                    } else {
-                                        tab = Tab::from_index((tab.index() + 1) % 9);
-                                    }
-                                    state.selected_index = 0;
-                                }
-                                KeyCode::BackTab => {
-                                    tab = Tab::from_index((tab.index() + 8) % 9);
-                                    state.selected_index = 0;
-                                }
-                                KeyCode::Up => {
-                                    let max = state.list_len(tab);
-                                    if max > 0 {
-                                        state.selected_index = (state.selected_index + max - 1) % max;
-                                    }
-                                }
-                                KeyCode::Down => {
-                                    let max = state.list_len(tab);
-                                    if max > 0 {
-                                        state.selected_index = (state.selected_index + 1) % max;
-                                    }
-                                }
-                                KeyCode::Char(c) if editable && c != 'q' && c != 'r' => {
-                                    mint_str.push(c);
-                                }
-                                KeyCode::Backspace if editable => {
-                                    mint_str.pop();
-                                }
-                                KeyCode::Enter if mint_str.trim().is_empty() => {}
-                                KeyCode::Enter => {
-                                    if tab == Tab::Operations && parse_pubkey(mint_str.trim()).is_ok() {
-                                        let op = Op::ALL[state.selected_index.min(Op::ALL.len() - 1)];
-                                        let values = op.fields().iter().map(|_| String::new()).collect();
-                                        state.form = Some(FormState::Operation {
-                                            op,
-                                            field_idx: 0,
-                                            values,
-                                        });
-                                    } else if tab == Tab::Compliance && parse_pubkey(mint_str.trim()).is_ok() {
-                                        let cop = ComplianceOp::ALL[state.selected_index.min(ComplianceOp::ALL.len() - 1)];
-                                        let values = cop.fields().iter().map(|_| String::new()).collect();
-                                        state.form = Some(FormState::Compliance {
-                                            op: cop,
-                                            field_idx: 0,
-                                            values,
-                                        });
-                                    } else if tab == Tab::Blacklist && parse_pubkey(mint_str.trim()).is_ok() {
-                                        state.form = Some(FormState::BlacklistCheck {
-                                            address: String::new(),
-                                        });
-                                    } else {
-                                        state.error_message = None;
-                                        if let Ok(mint) = parse_pubkey(&mint_str) {
-                                            refresh(ctx, &mint, &mut state);
-                                        }
-                                    }
-                                }
-                                _ => {}
-                            }
                         }
+                        _ => {}
+                    }
+                }
+            } else {
+                // Background polling timed out (500ms elapsed). Check if we need to auto-refresh real-time data.
+                if state.form.is_none() && state.last_refresh.elapsed() >= Duration::from_secs(5) {
+                    if let Ok(mint) = parse_pubkey(&mint_str) {
+                        refresh(ctx, &mint, &mut state);
+                        state.last_refresh = Instant::now();
                     }
                 }
             }
@@ -411,6 +451,7 @@ fn handle_form_key(
         FormState::Operation { op, field_idx, values } => (op.fields(), *field_idx, values, 0u8),
         FormState::Compliance { op, field_idx, values } => (op.fields(), *field_idx, values, 1u8),
         FormState::BlacklistCheck { .. } => return (false, false),
+        FormState::MintAddress { .. } => return (false, false),
     };
     match key {
         KeyCode::Char(c) => {
@@ -566,7 +607,8 @@ fn refresh(ctx: &CliContext, mint: &Pubkey, state: &mut TuiState) {
         });
     }
     state.roles = roles;
-    state.push_event("Roles refreshed");
+    state.last_refresh = Instant::now();
+    state.push_event("Data refreshed remotely");
 
     // Fetch holders
     match holders::fetch_holders(ctx, mint, None) {
@@ -592,7 +634,6 @@ fn draw_ui(
     mint_str: &str,
     tab: &Tab,
     state: &TuiState,
-    editable: bool,
 ) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -631,7 +672,7 @@ fn draw_ui(
     } else if let Some(ref form) = state.form {
         draw_form(f, form, mint_str, content_area);
     } else {
-        draw_tab_content(f, mint_str, tab, state, editable, content_area);
+        draw_tab_content(f, mint_str, tab, state, content_area);
     }
 
     // Footer
@@ -646,7 +687,7 @@ fn draw_header(f: &mut Frame, ctx: &CliContext, mint_str: &str, tab: &Tab, _stat
 
     let wallet_short = short_key(&ctx.payer_pubkey());
     let mint_display = if mint_str.is_empty() {
-        "(enter mint address)".to_string()
+        "[m] Set Mint".to_string()
     } else {
         short_key_str(mint_str)
     };
@@ -680,7 +721,9 @@ fn draw_header(f: &mut Frame, ctx: &CliContext, mint_str: &str, tab: &Tab, _stat
 
 fn draw_footer(f: &mut Frame, area: ratatui::layout::Rect) {
     let hints = Line::from(vec![
-        Span::styled(" Tab", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled(" m", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw(": Set Mint  "),
+        Span::styled("Tab", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(": Switch tabs  "),
         Span::styled("?", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(": Help  "),
@@ -703,16 +746,11 @@ fn draw_tab_content(
     mint_str: &str,
     tab: &Tab,
     state: &TuiState,
-    editable: bool,
     area: ratatui::layout::Rect,
 ) {
     let needs_mint = mint_str.is_empty() || parse_pubkey(mint_str).is_err();
     if needs_mint {
-        let msg = if editable {
-            "Type mint address (base58, 32-44 chars), press Enter, then 'r' to refresh. q to quit."
-        } else {
-            "No mint provided. Run with --mint <ADDRESS> to monitor."
-        };
+        let msg = "No mint provided. Press 'm' or Enter to set mint address, then 'r' to refresh.";
         let p = Paragraph::new(msg)
             .block(Block::default().borders(Borders::ALL).title("Info"))
             .wrap(Wrap { trim: true });
@@ -947,6 +985,30 @@ fn draw_form(f: &mut Frame, form: &FormState, mint_str: &str, area: ratatui::lay
         return;
     }
 
+    if let FormState::MintAddress { address } = form {
+        let lines = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("  Mint Address: ", Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{}▌", address), Style::default().fg(Color::White)),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(
+                " Enter: submit  Esc: cancel ",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(Span::styled(
+                " Set Mint Address ",
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ));
+        f.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: true }), area);
+        return;
+    }
+
     let (title, fields, field_idx, values) = match form {
         FormState::Operation { op, field_idx, values } => {
             (op.title(), op.fields(), *field_idx, values)
@@ -955,6 +1017,7 @@ fn draw_form(f: &mut Frame, form: &FormState, mint_str: &str, area: ratatui::lay
             (op.title(), op.fields(), *field_idx, values)
         }
         FormState::BlacklistCheck { .. } => return,
+        FormState::MintAddress { .. } => return,
     };
     let mut lines = vec![
         Line::from(vec![

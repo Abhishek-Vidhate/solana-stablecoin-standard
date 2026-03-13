@@ -21,15 +21,21 @@ For more, see the [Trident documentation](https://ackee.xyz/trident/docs/latest/
 
 ---
 
-## Token-2022 Limitation: Trident Issue #385
+## Honest Assessment: Trident Issue #385
 
-### The Problem
+The primary blocker for implementing Trident fuzz testing in SSS was [Trident Issue #385](https://github.com/ackee-blockchain/trident/issues/385), which documents a critical incompatibility with Token-2022 Associated Token Accounts (ATAs).
 
-[Trident Issue #385](https://github.com/Ackee-Blockchain/trident/issues/385) documents a bug when creating **Associated Token Accounts (ATAs)** for Token-2022 mints:
+### The "incorrect program id" Error
+When running SSS instructions in the Trident SVM environment, any call that interacts with a Token-2022 ATA fails with:
+`incorrect program id for instruction at GetAccountDataSize`
 
-> When attempting to create ATAs for a Token2022 mint, Trident fails with `incorrect program id for instruction` at `GetAccountDataSize`.
+### Technical Root Cause
+The Associated Token Account (ATA) program CPI within the Trident environment uses the **legacy SPL Token instruction encoding** even when the instruction is targeted at the Token-2022 program ID (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`).
 
-**Root cause:** The ATA CPI uses classic SPL Token instruction encoding against the Token-2022 program ID (`TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`), which rejects the instruction.
+Because Token-2022 strictly validates instruction format, it rejects the legacy-encoded `GetAccountDataSize` call as an invalid program ID mismatch.
+
+### Impact on SSS Fuzzing
+Since the SSS architecture is built entirely on Token-2022, every core instruction (`mint_tokens`, `burn_tokens`, `seize`) requires interaction with Token-2022 ATAs. This bug effectively bricked the fuzzing environment for our programs, making meaningful stateful testing unfeasible until the framework-level fix was broadly released.
 
 **Impact on SSS:**
 - SSS programs CPI to Token-2022 for `MintTo`, which may create recipient ATAs

@@ -52,17 +52,18 @@ export async function createSss3MintTransaction(
     ExtensionType.ConfidentialTransferMint,
   ];
   const mintLen = getMintLen(extensions);
-  const metadataLen = calcMetadataLen(name, symbol, uri, mint);
-  const totalLen = mintLen + metadataLen;
-  const lamports = await connection.getMinimumBalanceForRentExemption(totalLen);
+  // Estimate metadata size for rent pre-funding (generous estimate)
+  const estimatedMetadataLen = 256 + name.length + symbol.length + (uri?.length ?? 0);
+  const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + estimatedMetadataLen);
 
   const instructions: TransactionInstruction[] = [];
 
+  // Allocate only mintLen for space; Token-2022 metadata init will auto-reallocate
   instructions.push(
     SystemProgram.createAccount({
       fromPubkey: payer,
       newAccountPubkey: mint,
-      space: totalLen,
+      space: mintLen,
       lamports,
       programId: TOKEN_2022_PROGRAM_ID,
     })
@@ -145,12 +146,4 @@ function createConfidentialTransferMintInstruction(
   });
 }
 
-function calcMetadataLen(
-  name: string,
-  symbol: string,
-  uri: string,
-  mint: PublicKey
-): number {
-  const METADATA_BASE = 4 + 32 + 32 + 4 + 4 + 4 + 4;
-  return METADATA_BASE + name.length + symbol.length + uri.length + mint.toBase58().length;
-}
+// Token-2022 metadata init automatically reallocates the account.

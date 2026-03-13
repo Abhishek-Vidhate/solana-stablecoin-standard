@@ -9,51 +9,63 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import "@solana/wallet-adapter-react-ui/styles.css";
+import "./globals.css";
+
+// Polyfill Buffer for Anchor and @solana/web3.js browser compatibility
+import { Buffer } from "buffer";
+import { usePathname } from "next/navigation";
+
+if (typeof window !== "undefined") {
+  window.Buffer = window.Buffer || Buffer;
+}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const endpoint = process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
     []
   );
 
+  const navItems = [
+    { name: "Create", href: "/create" },
+    { name: "Operations", href: "/operations" },
+    { name: "Roles", href: "/roles" },
+    { name: "Blacklist", href: "/blacklist" },
+    { name: "Confidential", href: "/confidential" },
+    { name: "History", href: "/history" },
+  ];
+
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif" }}>
+      <body>
         <ConnectionProvider endpoint={endpoint}>
           <WalletProvider wallets={wallets} autoConnect>
             <WalletModalProvider>
-              <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-                <header style={{ padding: "1rem 2rem", borderBottom: "1px solid #eee" }}>
-                  <nav style={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
-                    <a href="/" style={{ fontWeight: 600, textDecoration: "none", color: "#333" }}>
-                      SSS Dashboard
+              <div className="min-h-screen flex flex-col bg-[#050505] text-white">
+                <header className="px-8 py-4">
+                  <nav className="flex gap-8 items-center max-w-7xl mx-auto w-full">
+                    <a href="/" className="text-xl font-bold solana-gradient tracking-tighter">
+                      SSS
                     </a>
-                    <a href="/create" style={{ textDecoration: "none", color: "#666" }}>
-                      Create
-                    </a>
-                    <a href="/operations" style={{ textDecoration: "none", color: "#666" }}>
-                      Operations
-                    </a>
-                    <a href="/roles" style={{ textDecoration: "none", color: "#666" }}>
-                      Roles
-                    </a>
-                    <a href="/blacklist" style={{ textDecoration: "none", color: "#666" }}>
-                      Blacklist
-                    </a>
-                    <a href="/confidential" style={{ textDecoration: "none", color: "#666" }}>
-                      Confidential
-                    </a>
-                    <a href="/history" style={{ textDecoration: "none", color: "#666" }}>
-                      History
-                    </a>
+                    <div className="flex gap-6 items-center flex-1">
+                      {navItems.map((item) => (
+                        <a
+                          key={item.href}
+                          href={item.href}
+                          className={pathname === item.href ? "active" : ""}
+                        >
+                          {item.name}
+                        </a>
+                      ))}
+                    </div>
                   </nav>
                 </header>
-                <main style={{ flex: 1, padding: "2rem" }}>{children}</main>
+                <main className="flex-1 max-w-7xl mx-auto w-full p-8">{children}</main>
               </div>
             </WalletModalProvider>
           </WalletProvider>

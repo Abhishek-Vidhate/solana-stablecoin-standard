@@ -5,7 +5,7 @@
     "lint:fix": "prettier --write \"**/*.{js,ts}\"",
     "lint": "prettier --check \"**/*.{js,ts}\"",
     "build:sdk": "cd sdk && npm run build",
-    "build:cli": "cd cli && npm run build",
+    "build:cli": "cd cli && cargo build",
     "build:backend": "cd backend && npm run build",
     "build:all": "npm run build:sdk && npm run build:cli && npm run build:backend",
     "test": "anchor test",

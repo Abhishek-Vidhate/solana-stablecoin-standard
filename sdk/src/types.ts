@@ -113,11 +113,11 @@ export interface FeeConfig {
 }
 
 export const SSS_CORE_PROGRAM_ID = new PublicKey(
-  "CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei"
+  "CoREe6ZkRj5QFA96vYWPqtEfbL1Cnjr1b1BsEymuAt3x"
 );
 
 export const SSS_TRANSFER_HOOK_PROGRAM_ID = new PublicKey(
-  "HooKchDVVKm7GkAX4w75bbaQUbMcDUnYXSzqLZCWKCDH"
+  "HooKDQzbbLdNExNAH4FowynGaEwtnYP6wrpz1jP19zoj"
 );
 
 export const TOKEN_2022_PROGRAM_ID = new PublicKey(

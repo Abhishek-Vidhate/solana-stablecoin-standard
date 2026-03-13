@@ -7,7 +7,7 @@ graph TD
     subgraph "Off-Chain"
         CLI["CLI — sss-token (Rust)"]
         API["REST API — Express"]
-        SDK["SDK — @abhishek-vidhate/sss-token"]
+        SDK["SDK — @stbr/sss-token"]
     end
 
     CLI --> Core
@@ -59,11 +59,11 @@ anchor deploy
 ## SDK Usage
 
 ```bash
-npm install @abhishek-vidhate/sss-token
+npm install @stbr/sss-token
 ```
 
 ```typescript
-import { SolanaStablecoin, Preset } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset } from "@stbr/sss-token";
 import { BN } from "bn.js";
 
 // Create a regulated stablecoin
@@ -99,7 +99,7 @@ The CLI is a Rust binary (`sss-token`) built with clap. Install globally so you 
 
 ```bash
 # Install (adds sss-token to ~/.cargo/bin; ensure it's in your PATH)
-cargo install --path cli
+cargo install --path cli --locked
 
 # Then use like any CLI
 sss-token --help
@@ -118,6 +118,9 @@ export SSS_MINT=<mint_address>
 # Interactive TUI (monitoring + operations)
 sss-token tui --mint $SSS_MINT   # Tab: Operations (mint/burn/freeze/thaw/pause/unpause/seize), Compliance (blacklist, roles)
 
+# Try out the TUI with the pre-seeded Aves USD (SSS-4) token on Devnet:
+# sss-token tui --mint AGzqpW3Si8RK3myeNyG6NRVyLFpUZHJe7WMZF4oRNKPR
+
 # Operate (CLI)
 sss-token mint --mint $SSS_MINT --to <RECIPIENT> --amount 1000000000
 sss-token freeze --mint $SSS_MINT --account <TOKEN_ACCOUNT>
@@ -132,33 +135,71 @@ sss-token status --mint $SSS_MINT
 
 ```bash
 # Start with Docker
-export API_KEY="your-secure-key"
+export SOLANA_RPC_URL="https://api.devnet.solana.com"
 docker-compose up -d
 
 # Mint via API
 curl -X POST http://localhost:3000/operations/mint \
   -H "Content-Type: application/json" \
-  -H "X-API-KEY: $API_KEY" \
   -d '{"mint": "<MINT>", "recipient": "<WALLET>", "amount": "1000000000"}'
 ```
 
-## Architecture
+## Architecture & Compute Unit (CU) Performance
 
 - **2 programs:** `sss-core` (lifecycle, RBAC) + `sss-transfer-hook` (blacklist compliance)
-- **Zero-copy config:** `StablecoinConfig` uses `AccountLoader` for efficient CU usage
-- **7 roles:** Admin, Minter, Freezer, Pauser, Burner, Blacklister, Seizer
-- **Two-step authority transfer:** Propose then accept to prevent lockout
-- **Token-2022 native:** MetadataPointer, PermanentDelegate, TransferHook, DefaultAccountState, ConfidentialTransferMint, TransferFeeConfig
-- **Pyth oracle:** Recommended for collateralized preset extensions; SDK `oracle` module with `PRICE_FEED_REGISTRY`, staleness checks. See [ARCHITECTURE.md#oracle-fields--pyth-integration](docs/ARCHITECTURE.md#oracle-fields--pyth-integration).
+- **Zero-copy config:** `StablecoinConfig` uses `AccountLoader` for highly optimized CUs:
+  - `initialize`: **~21,831 CU**
+  - `mint_tokens`: **~13,556 CU**
+  - `burn_tokens`: **~11,121 CU**
+  - `update_transfer_fee`: **~12,888 CU**
 
-**Differentiators:** Zero-copy config, SSS-4 (transfer fees), two-step authority, sender blacklist fix, Docker. See [ARCHITECTURE.md#differentiators](docs/ARCHITECTURE.md#differentiators). For Trident + Token-2022 compatibility, see [TRIDENT_AND_TOKEN2022.md](docs/TRIDENT_AND_TOKEN2022.md).
+## Major Design & Architecture Choices
 
-## Program IDs
+### 1. Zero-Copy Configuration
+The `sss-core` program utilizes `AccountLoader` for the `StablecoinConfig` account. This **zero-copy** approach allows the program to read configuration data directly from the account's input buffer without expensive heap allocation or Borsh deserialization. This is critical for keeping Compute Unit (CU) costs stable as the configuration grows.
 
-| Program | Address |
-|---|---|
-| sss-core | `CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei` |
-| sss-transfer-hook | `HooKchDVVKm7GkAX4w75bbaQUbMcDUnYXSzqLZCWKCDH` |
+### 2. Hierarchical Role-Based Access Control (RBAC)
+Instead of a single "Owner" or "Upgrade Authority," SSS implements a robust RBAC system with **7 distinct roles**: Admin, Minter, Freezer, Pauser, Burner, Blacklister, and Seizer. This allows for strict separation of duties (e.g., a "Minter" cannot also "Blacklist" addresses).
+
+### 3. SSS-4 Monetization (PYUSD-Class)
+SSS-4 introducing native transfer fees using Token-2022's `TransferFeeConfig`. This is a production-grade implementation of a monetized stablecoin, allowing issuers to capture revenue on every transaction while maintaining full on-chain transparency.
+
+### 4. Two-Step Authority Transfer
+To prevent accidental protocol lockouts, authority transfer requires a two-step "Propose then Accept" process. The treasury is never at risk of being transferred to an invalid or unreachable address.
+
+## Verification & Testing
+
+### 1. Automated Integration Tests
+The project includes a comprehensive suite of **60+ integration tests** covering all presets, edge cases, and security boundaries.
+
+```bash
+# Run all Anchor integration tests
+anchor test
+```
+
+### 2. Trident Fuzzing (Honest Assessment)
+While the SSS architecture is designed for high-security environments, **Trident stateful fuzz testing was not implemented** due to a documented framework-level incompatibility with Token-2022 programs ([Trident Issue #385](https://github.com/ackee-blockchain/trident/issues/385)). 
+
+The Trident SVM environment encounters an `IncorrectProgramId` error at `GetAccountDataSize` because the ATA program uses legacy instruction encoding for Token-2022 accounts. This makes fuzzing instructions that require Token-2022 ATAs unfeasible. 
+
+For full technical details, see [TRIDENT_INTEGRATION_ANALYSIS.md](docs/TRIDENT_INTEGRATION_ANALYSIS.md).
+
+### 3. Compute Unit (CU) Reporting
+A custom test reporter is provided to capture real-world CU consumption and transaction signatures.
+
+```bash
+# Generate a detailed CU and transaction report
+npm run test:report
+```
+
+## Program Deployments (Devnet)
+
+| Program | Address | Solana Explorer |
+|---|---|---|
+| sss-core | `CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei` | [View Details](https://explorer.solana.com/address/CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei?cluster=devnet) |
+| sss-transfer-hook | `HooKchDVVKm7GkAX4w75bbaQUbMcDUnYXSzqLZCWKCDH` | [View Details](https://explorer.solana.com/address/HooKchDVVKm7GkAX4w75bbaQUbMcDUnYXSzqLZCWKCDH?cluster=devnet) |
+
+*JSON representations of full devnet lifecycle operations can be found in `deployments/`*
 
 ## Project Structure
 
@@ -166,7 +207,7 @@ curl -X POST http://localhost:3000/operations/mint \
 programs/
   sss-core/          # Core stablecoin program (Anchor)
   sss-transfer-hook/ # Transfer hook compliance program (Anchor)
-sdk/                 # TypeScript SDK (@abhishek-vidhate/sss-token)
+sdk/                 # TypeScript SDK (@stbr/sss-token)
 cli/                 # Rust CLI (sss-token, clap) — includes interactive TUI
 backend/             # Express REST API
 tests/               # Integration tests (ts-mocha)
@@ -188,7 +229,7 @@ example/
 | [Operations Runbook](docs/OPERATIONS.md) | Operator procedures for deployment and daily operations |
 | [Compliance](docs/COMPLIANCE.md) | Regulatory architecture (GENIUS Act, MiCA) |
 | [API Reference](docs/API.md) | Backend REST endpoints, authentication, Docker setup |
-| [Trident & Token-2022](docs/TRIDENT_AND_TOKEN2022.md) | Honest assessment of Trident compatibility with Token-2022 |
+| [Trident & Token-2022](docs/TRIDENT_INTEGRATION_ANALYSIS.md) | Honest assessment of Trident compatibility with Token-2022 |
 
 ## Tech Stack
 

@@ -44,9 +44,14 @@ Native `anchor-spl` CPIs do not magically forward the extra accounts required by
 
 All arithmetic operations (supply calculations, mint quotas, transfer fee percentages) utilize standard Rust `checked_add`, `checked_sub`, and `checked_mul`. Any overflow instantly panics via the `SssError::MathOverflow` custom error, reverting the transaction.
 
-## 5. Audit Recommendations
+## 5. Audit History & Recommendations
 
-Before mainnet deployment, the SSS codebase should undergo:
+The SSS codebase has undergone initial security reviews. **Current audit reports can be found in the [.audit/](../.audit/) directory.**
+
+### Existing Reports
+- [Initial Security Scan - March 2026](../.audit/2026-03-07-audit-report.md)
+
+### Future Recommendations
+Before high-value mainnet deployment, the SSS codebase should undergo:
 1. Formal Verification of the RBAC PDA derivations.
-2. Property-based and integration testing (LiteSVM, Anchor tests) focusing on the `sss-transfer-hook` bounds. See [TRIDENT_AND_TOKEN2022.md](TRIDENT_AND_TOKEN2022.md) for Trident + Token-2022 compatibility.
-3. Review by established Solana security firms (OtterSec, Neodyme, or Zellic).
+2. Property-based and integration testing (LiteSVM, Anchor tests) focusing on the `sss-transfer-hook` bounds. See [TRIDENT_INTEGRATION_ANALYSIS.md](TRIDENT_INTEGRATION_ANALYSIS.md) for technical reasoning on Trident + Token-2022 compatibility.

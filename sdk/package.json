@@ -1,5 +1,5 @@
 {
-  "name": "@abhishek-vidhate/sss-token",
+  "name": "@stbr/sss-token",
   "version": "0.1.0",
   "description": "Solana Stablecoin Standard SDK — modular toolkit for issuing stablecoins on Solana",
   "main": "dist/index.js",

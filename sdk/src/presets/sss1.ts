@@ -40,16 +40,17 @@ export function buildSss1MintInstructions(opts: {
 
   const extensions = [ExtensionType.MetadataPointer, ExtensionType.PermanentDelegate];
   const mintLen = getMintLen(extensions);
-  const metadataLen = calcMetadataLen(name, symbol, uri, mint);
-  const totalLen = mintLen + metadataLen;
 
   const instructions: TransactionInstruction[] = [];
 
+  // Allocate only mintLen for space (Token-2022 validates TLV at InitializeMint2).
+  // Pre-fund lamports for the estimated final size including metadata,
+  // since the metadata init instruction will reallocate the account.
   instructions.push(
     SystemProgram.createAccount({
       fromPubkey: payer,
       newAccountPubkey: mint,
-      space: totalLen,
+      space: mintLen,
       lamports: 0, // will be set by caller after getMinimumBalanceForRentExemption
       programId: TOKEN_2022_PROGRAM_ID,
     })
@@ -124,12 +125,13 @@ export async function createSss1MintTransaction(
 
   const extensions = [ExtensionType.MetadataPointer, ExtensionType.PermanentDelegate];
   const mintLen = getMintLen(extensions);
-  const metadataLen = calcMetadataLen(opts.name, opts.symbol, opts.uri, mintKeypair.publicKey);
-  const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataLen);
+  // Estimate metadata size for rent pre-funding (generous estimate)
+  const estimatedMetadataLen = 256 + opts.name.length + opts.symbol.length + (opts.uri?.length ?? 0);
+  const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + estimatedMetadataLen);
   instructions[0] = SystemProgram.createAccount({
     fromPubkey: opts.payer,
     newAccountPubkey: mintKeypair.publicKey,
-    space: mintLen + metadataLen,
+    space: mintLen,
     lamports,
     programId: TOKEN_2022_PROGRAM_ID,
   });
@@ -138,12 +140,5 @@ export async function createSss1MintTransaction(
   return { transaction, mintKeypair };
 }
 
-function calcMetadataLen(
-  name: string,
-  symbol: string,
-  uri: string,
-  mint: PublicKey
-): number {
-  const METADATA_BASE = 4 + 32 + 32 + 4 + 4 + 4 + 4;
-  return METADATA_BASE + name.length + symbol.length + uri.length + mint.toBase58().length;
-}
+// Token-2022 metadata init automatically reallocates the account,
+// so we no longer need to pre-calculate metadata space.

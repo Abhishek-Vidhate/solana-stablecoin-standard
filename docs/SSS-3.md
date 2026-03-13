@@ -76,7 +76,7 @@ const { stablecoin } = await SolanaStablecoin.create(connection, wallet, {
 ## SDK Usage
 
 ```typescript
-import { SolanaStablecoin, Preset } from "@abhishek-vidhate/sss-token";
+import { SolanaStablecoin, Preset } from "@stbr/sss-token";
 
 const { stablecoin, mintKeypair } = await SolanaStablecoin.create(
   connection,

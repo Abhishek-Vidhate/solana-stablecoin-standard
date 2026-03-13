@@ -28,7 +28,14 @@ Dark pools and enterprise B2B settlements require privacy, but regulators requir
 * **Mechanism:** The SSS-3 preset utilizes `ConfidentialTransferMint` with a highly specific configuration: The **Auditor Key**.
 * **Flow:** While peer-to-peer transfers are encrypted with ElGamal and invisible to block explorers, the issuer retains an Auditor Private Key. This key can symmetrically decrypt any transaction amount on the ledger, providing a complete, historical audit trail to regulators upon subpoena, without leaking competitor data to the public.
 
-## 4. Off-Chain Indexing & Audit Trails
+## 4. Monetization & Sustainability (SSS-4)
+
+The SSS-4 preset introduces a native **Transfer Fee** mechanism, similar to the fee structure utilized by regulated institutions like PayPal (PYUSD).
+
+* **Mechanism**: The `TransferFeeConfig` extension is initialized during mint creation. The `Admin` role can dynamically update `basisPoints` (capped at 10%) and `maximumFee`.
+* **Revenue Compliance**: Collected fees are withheld in the user's token account until "swept" by the issuer via the `withdraw_withheld` instruction. This ensures that the monetization of the stablecoin is transparent, immutable, and strictly controlled by authorized accounts, facilitating clear financial reporting and tax compliance for the issuing entity.
+
+## 5. Off-Chain Indexing & Audit Trails
 
 Compliance relies heavily on robust historical record-keeping. The SSS backend services utilize Rust Axum indexers to consume RPC WebSocket streams.
 * Every `Mint`, `Burn`, `Seize`, `Freeze`, and `Blacklist` action emits a strongly typed Anchor Event.

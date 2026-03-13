@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { z } from "zod";
+import { SolanaStablecoin } from "@stbr/sss-token";
 import { SolanaService } from "../services/solana";
 import { logger } from "../services/logger";
 
@@ -56,6 +57,61 @@ const FeesWithdrawBody = z.object({
   mint: pubkeyStr,
   destination: pubkeyStr,
   sources: z.array(pubkeyStr).optional(),
+});
+
+// ----------------------------------------------------------------------
+// POST /operations/init
+// ----------------------------------------------------------------------
+
+const InitBody = z.object({
+  preset: z.number().min(1).max(4),
+  name: z.string().min(1),
+  symbol: z.string().min(1),
+  uri: z.string(),
+  decimals: z.number().min(0).max(9),
+  supplyCap: z.string().or(z.number()).optional(),
+  oracleFeedId: z.array(z.number()).optional(),
+  transferFeeBasisPoints: z.number().optional(),
+  maximumFee: z.string().or(z.number()).optional(),
+});
+
+router.post("/init", async (req: Request, res: Response) => {
+  try {
+    const body = InitBody.parse(req.body);
+    const svc = SolanaService.get();
+    
+    // SolanaStablecoin.create needs the full config object
+    const { stablecoin, mintKeypair, signature } = await SolanaStablecoin.create(
+      svc.getConnection(),
+      svc.getWallet(),
+      {
+        preset: body.preset,
+        name: body.name,
+        symbol: body.symbol,
+        uri: body.uri,
+        decimals: body.decimals,
+        supplyCap: body.supplyCap ? new BN(body.supplyCap.toString()) : undefined,
+        oracleFeedId: body.oracleFeedId,
+        transferFeeBasisPoints: body.transferFeeBasisPoints,
+        maximumFee: body.maximumFee ? new BN(body.maximumFee.toString()) : undefined,
+      }
+    );
+
+    logger.info("Init executed", { 
+      preset: body.preset, 
+      mint: mintKeypair.publicKey.toBase58(), 
+      signature 
+    });
+    
+    res.json({ 
+      success: true, 
+      mint: mintKeypair.publicKey.toBase58(),
+      signature 
+    });
+  } catch (err) {
+    logger.error("Init failed", { error: err instanceof Error ? err.message : String(err) });
+    res.status(400).json({ success: false, error: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 router.post("/mint", async (req: Request, res: Response) => {
