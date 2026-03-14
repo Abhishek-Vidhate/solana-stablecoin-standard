@@ -2,18 +2,7 @@
 
 A production-grade framework for issuing and managing stablecoins on Solana using Token-2022. One configurable on-chain program, four compliance presets, full SDK, CLI, and REST API.
 
-## Presets
-
-| Preset | Use Case | Extensions | Blacklist | Fees |
-|---|---|---|:---:|:---:|
-| **SSS-1** | DAO / utility tokens | MetadataPointer, PermanentDelegate | — | — |
-| **SSS-2** | Regulated fiat (USDC-class) | + TransferHook, DefaultAccountState(Frozen) | Yes | — |
-| **SSS-3** | Confidential / B2B | + ConfidentialTransferMint | — | — |
-| **SSS-4** | Monetized (PYUSD-class) | SSS-2 + TransferFeeConfig | Yes | Yes |
-
-All presets share the same on-chain program. The SDK configures different Token-2022 extensions at mint creation time.
-
-## Architecture & Compute Unit (CU) Performance
+## Architecture
 
 - **2 programs:** `sss-core` (lifecycle, RBAC) + `sss-transfer-hook` (blacklist compliance)
 - **Zero-copy config:** `StablecoinConfig` uses `AccountLoader` for highly optimized CUs:
@@ -21,6 +10,16 @@ All presets share the same on-chain program. The SDK configures different Token-
   - `mint_tokens`: **~13,556 CU**
   - `burn_tokens`: **~11,121 CU**
   - `update_transfer_fee`: **~12,888 CU**
+- **Presets**
+
+| Preset | Use Case | Extensions | Blacklist | Fees |
+|---|---|---|:---:|:---:|
+| **SSS-1** | DAO / utility tokens | MetadataPointer, PermanentDelegate | — | — |
+| **SSS-2** | Regulated fiat (USDC-class) | + TransferHook, DefaultAccountState(Frozen) | Yes | — |
+| **SSS-3** | Confidential / B2B | + ConfidentialTransferMint | — | — |
+| **SSS-4** | Monetized  | SSS-2 + TransferFeeConfig | Yes | Yes |
+
+All presets share the same on-chain program. The SDK configures different Token-2022 extensions at mint creation time.
 
 
 ```mermaid
@@ -47,7 +46,7 @@ graph TD
 ```
 
 
-## Major Design & Architecture Choices
+## Program Design
 
 ### 1. Zero-Copy Configuration
 The `sss-core` program utilizes `AccountLoader` for the `StablecoinConfig` account. This **zero-copy** approach allows the program to read configuration data directly from the account's input buffer without expensive heap allocation or Borsh deserialization. This is critical for keeping Compute Unit (CU) costs stable as the configuration grows.
@@ -61,30 +60,6 @@ SSS-4 introducing native transfer fees using Token-2022's `TransferFeeConfig`. T
 ### 4. Two-Step Authority Transfer
 To prevent accidental protocol lockouts, authority transfer requires a two-step "Propose then Accept" process. The treasury is never at risk of being transferred to an invalid or unreachable address.
 
-## Verification & Testing
-
-### 1. Automated Integration Tests
-The project includes a comprehensive suite of **60+ integration tests** covering all presets, edge cases, and security boundaries.
-
-```bash
-# Run all Anchor integration tests
-anchor test
-```
-
-### 2. Trident Fuzzing (Assessment)
-While the SSS architecture is designed for high-security environments, **Trident stateful fuzz testing was not implemented** due to a documented framework-level incompatibility with Token-2022 programs ([Trident Issue #385](https://github.com/ackee-blockchain/trident/issues/385)). 
-
-The Trident SVM environment encounters an `IncorrectProgramId` error at `GetAccountDataSize` because the ATA program uses legacy instruction encoding for Token-2022 accounts. This makes fuzzing instructions that require Token-2022 ATAs unfeasible. 
-
-For full technical details, see [TRIDENT_INTEGRATION_ANALYSIS.md](docs/TRIDENT_INTEGRATION_ANALYSIS.md).
-
-### 3. Compute Unit (CU) Reporting
-A custom test reporter is provided to capture real-world CU consumption and transaction signatures.
-
-```bash
-# Generate a detailed CU and transaction report
-npm run test:report
-```
 
 ## Program Deployments (Devnet)
 
@@ -232,6 +207,33 @@ docker-compose up -d
 curl -X POST http://localhost:3000/operations/mint \
   -H "Content-Type: application/json" \
   -d '{"mint": "<MINT>", "recipient": "<WALLET>", "amount": "1000000000"}'
+```
+
+
+
+## Verification & Testing
+
+### 1. Automated Integration Tests
+The project includes a comprehensive suite of **60+ integration tests** covering all presets, edge cases, and security boundaries.
+
+```bash
+# Run all Anchor integration tests
+anchor test
+```
+
+### 2. Trident Fuzzing (Assessment)
+While the SSS architecture is designed for high-security environments, **Trident stateful fuzz testing was not implemented** due to a documented framework-level incompatibility with Token-2022 programs ([Trident Issue #385](https://github.com/ackee-blockchain/trident/issues/385)). 
+
+The Trident SVM environment encounters an `IncorrectProgramId` error at `GetAccountDataSize` because the ATA program uses legacy instruction encoding for Token-2022 accounts. This makes fuzzing instructions that require Token-2022 ATAs unfeasible. 
+
+For full technical details, see [TRIDENT_INTEGRATION_ANALYSIS.md](docs/TRIDENT_INTEGRATION_ANALYSIS.md).
+
+### 3. Compute Unit (CU) Reporting
+A custom test reporter is provided to capture real-world CU consumption and transaction signatures.
+
+```bash
+# Generate a detailed CU and transaction report
+npm run test:report
 ```
 
 
