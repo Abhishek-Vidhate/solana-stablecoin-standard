@@ -55,7 +55,7 @@ The `sss-core` program utilizes `AccountLoader` for the `StablecoinConfig` accou
 ### 2. Hierarchical Role-Based Access Control (RBAC)
 Instead of a single "Owner" or "Upgrade Authority," SSS implements a robust RBAC system with **7 distinct roles**: Admin, Minter, Freezer, Pauser, Burner, Blacklister, and Seizer. This allows for strict separation of duties (e.g., a "Minter" cannot also "Blacklist" addresses).
 
-### 3. SSS-4 Monetization (PYUSD-Class)
+### 3. SSS-4 : StableCoin Monetization 
 SSS-4 introducing native transfer fees using Token-2022's `TransferFeeConfig`. This is a production-grade implementation of a monetized stablecoin, allowing issuers to capture revenue on every transaction while maintaining full on-chain transparency.
 
 ### 4. Two-Step Authority Transfer

@@ -1,4 +1,4 @@
-# SSS-4: Monetized Stablecoin (PYUSD Style)
+# SSS-4: Monetized Stablecoin
 
 The SSS-4 preset is the enterprise-ready stablecoin format with built-in revenue generation. It combines full SSS-2 compliance tooling with native transfer fees, replicating the on-chain structure used by PayPal's PYUSD.
 
