@@ -1,0 +1,21 @@
+{
+  "preset": "sss-1",
+  "mint": "13dNnA5A7zs8SYhwLBLoBJnDKtwzFucD7okjFMeaDeKv",
+  "config": "",
+  "recipient": "GGZet9jRtTa2Y9K3VvNZ1PR4ziVnKuHNvRhiPfujrLPG",
+  "payerAta": "Eg2BEs3YMAHFZjx8tZEko9pgGzBvkte8u2J3sX3Q9vBp",
+  "recipientAta": "FmuBpSCC5WemYLXsppkeyYjEndJKNv99EGHPh3su4NMp",
+  "transactions": {
+    "initialize": "42HWaNTjGHCa5vn9nEFsEg3KWHHwnWzZbB9SU3GtU4xNMJuFHqP5Pg1Q5b6JTahYpBpdVECE1WWpLgcGuCBrFdHU",
+    "grantMinter": "4bjPLUjyZghdYuBburTHsH8AVSk7d7pqnb4PmbdCM5rnxJMHvt3RjThESaRiMtR26N9oBpfgDCdnXMGYgydcL33f",
+    "grantFreezer": "4kxGANdp4NWGNBYJspzyjQuaaamfS6dShjUYiXMxHBVNS1SRX3riC5RibG8NiBz5UN76AD873v9inYZEzP9z3tqN",
+    "mintToRecipient": "5ZJfWh7VTuezGp7vFqJb2tLdHTykDf768fRPbbgU5HsZ9ijkPkEQCSPuyWytvJJvrJHYjY1UQdtxmmfRs5XKZGmG",
+    "mintToPayer": "2mrJH24T3Y7Pn4dmn5t7FHDLpit2cDgGicCQD8iDuxS9rk7LQLK8GNiMKSbUspa5eDQg47t9tpjQ2xUYdhXB98if",
+    "grantBurner": "38M1SVH7Wtfm5dYhn7QEsvubMDPoMNtYNS3AbqyHyySE1jeDowRjMnZNjNqgQZQNAdzCuRWGDDjiUAK7LRzTrGoV",
+    "burn": "4D7m1ncnxskP73ayShNvQtELhCAAESfx8WeFqtZhTTktZye2wq17JQtqQmHtSgrGyimSGprzo3Xqgp9a9H3zyXrn",
+    "freeze": "3tU1naJzGxopGApU3GyvVRXwcLYoESudkVinTU8PiZdWBaAR8pT2T6q3XxEf5u7oojm6JocNE27PdVQz1Vn3Re4a",
+    "thaw": "5SDhHMhjSWMuat16QrDuKem3tZtvHURxrZUL3nDbsg5y7wzitmishJ8sVJyAtjtrfxsFiHmFuofk7iLefp2Sr2BC"
+  },
+  "timestamp": "2026-03-12T13:35:54.273706Z",
+  "cluster": "devnet"
+}

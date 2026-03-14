@@ -1,0 +1,24 @@
+{
+  "preset": "sss-2",
+  "mint": "FbbofJiuphzfxxy1YyFqtakHeMGFzAvjDbHtUpqnsV2W",
+  "config": "",
+  "recipient": "GGZet9jRtTa2Y9K3VvNZ1PR4ziVnKuHNvRhiPfujrLPG",
+  "payerAta": "AGw2ZNWxVCpFF3gnyWLgH6ZLMhkgBDVDKb5VsBAaZhUP",
+  "recipientAta": "8aYaxSFqz2iq4gfYxuLwnzdnqYrWpUvAXeadVbwyEFQx",
+  "transactions": {
+    "initialize": "4n7DLVSthcBLeAtMd2TD7GPPaR1E3T7xSVh46Yk3XYAqKyHc9ZgcsVNUwv5ZRqFmj59Efo9sP7gNHQb9RrRQhkgy",
+    "grantMinter": "264ZaEqABx8LRReytAqWGim5yQSSciHsEewHo4JScPUXk5up1onsZZZTMu6QYWXYmGfnD5tmFqniVCaV3mMsinau",
+    "grantFreezer": "4xNdYuVZ36zLqs9RXyVPWi4zGbYY79vTft5c7M5mJa2ACb4PEmuNJqm5QEoMxWCoXdQxKwuoNUL95UjCPhAWQNTk",
+    "mintToRecipient": "5um6fRBNifYHBLR5dSuHpe2Jsgfrzp5vxVWizqzuTwiXTxBk4GTdBeX9RiWseCSm3Ro81mWPoi9ZpNMNLYRmai1S",
+    "mintToPayer": "5ETrENYUv6facU1T3wwAve1JJ2LHSbHx692oJJLC4MQggUm6mpThBYLh1tuxFg4fwQVSNzieeRZN9NhJBMii4H5u",
+    "grantBurner": "3kgee2axGHwgwsZjLqk13MSPK5x22wWjFxfsnB3B4Fw6F1Pwh4zEEkUYNyV6r6Dm7BwLHWqnAc1jKfRAbgHwE7gr",
+    "burn": "4xzuanHRwF69cTwvC4UARjCQcQfCjJVCVoM3BqUYKF2VmAKwQYwHGGPCWt9YPBKQVjbEVipBfUx4CuKTqdV1a9Ug",
+    "freeze": "3BMHurLzv7EQN3WKv53Jxz55YVaf3Gb4bzRNhVL2eGECvZ7dG7PTBPxQ7jh3K9kkinboFEumUFuBhKXTX41EGXNj",
+    "thaw": "2VCuGWtiRmipjgx3WYixvvgfcTp98jcY3cmA4aPFbH4D2u8SzFwCVLmKxUy8yomrB8ZxtH7Y5sz9g3ePqoZKds4R",
+    "grantBlacklister": "Pia4cdHKZHiN9qP8amdhsDLcpwDHc6joAxYPaM3xGX2oAvWndz7B3RJq2qaFwfD18KfPKECw59kraGUUMkcb11Z",
+    "blacklistAdd": "3bMLAJUinEEXYnwbowMuKQpeqtvKKp6UF5J3b6WFzDadR4nFiCuPnXaQgUX6FeVGNyeqfDBHmbsCi9zCGmc5R5ma",
+    "blacklistRemove": "QJXsG5a4cHmaKanWHy3MqNjr2nXdiYFsVYi3wvrUfxquvjsAftXR5UpDZqi8uxfVDivKV3DnGNuRVR4exy6BGpZ"
+  },
+  "timestamp": "2026-03-12T13:36:10.648949Z",
+  "cluster": "devnet"
+}

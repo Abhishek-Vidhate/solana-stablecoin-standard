@@ -1,0 +1,31 @@
+{
+  "name": "solana-stablecoin-standard",
+  "license": "Apache-2.0",
+  "scripts": {
+    "lint:fix": "prettier --write \"**/*.{js,ts}\"",
+    "lint": "prettier --check \"**/*.{js,ts}\"",
+    "build:sdk": "cd sdk && npm run build",
+    "build:cli": "cd cli && cargo build",
+    "build:backend": "cd backend && npm run build",
+    "build:all": "npm run build:sdk && npm run build:cli && npm run build:backend",
+    "test": "anchor test",
+    "test:report": "touch .report-requested && anchor test; rm -f .report-requested"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.10",
+    "@solana/spl-token-metadata": "^0.1.6",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "mocha": "^10.0.0",
+    "ts-mocha": "^10.0.0",
+    "tsx": "^4.19.0",
+    "@types/bn.js": "^5.1.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^9.0.0",
+    "typescript": "^5.7.3",
+    "prettier": "^3.0.0"
+  }
+}

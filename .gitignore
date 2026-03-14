@@ -1,0 +1,42 @@
+.anchor
+.DS_Store
+target
+**/*.rs.bk
+node_modules
+test-ledger
+.yarn
+wallets/
+.rules/
+reference/
+
+# Test report trigger (created by npm run test:report)
+.report-requested
+.report-cb-ran
+
+# Build / generated
+sdk/dist
+backend/dist
+*.tsbuildinfo
+**/.next
+yarn.lock
+
+# Env and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Generated test reports (keep README and example)
+reports/*.md
+!reports/README.md
+!reports/test-report-EXAMPLE.md
+reports/.run-called
+reports/.setup-loaded
+reports/.patch-verified
+reports/debug-env.json
+
+# IDE
+.vscode/
+reports/
+!reports/README.md
+!reports/test-report-EXAMPLE.md
