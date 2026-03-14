@@ -2,7 +2,7 @@
 
 A production-grade framework for issuing and managing stablecoins on Solana using Token-2022. One configurable on-chain program, four compliance presets, full SDK, CLI, and REST API.
 
-## Architecture
+# Architecture
 
 - **2 programs:** `sss-core` (lifecycle, RBAC) + `sss-transfer-hook` (blacklist compliance)
 - **Zero-copy config:** `StablecoinConfig` uses `AccountLoader` for highly optimized CUs:
@@ -10,6 +10,7 @@ A production-grade framework for issuing and managing stablecoins on Solana usin
   - `mint_tokens`: **~13,556 CU**
   - `burn_tokens`: **~11,121 CU**
   - `update_transfer_fee`: **~12,888 CU**
+ 
 - **Presets**
 
 | Preset | Use Case | Extensions | Blacklist | Fees |
@@ -68,7 +69,7 @@ To prevent accidental protocol lockouts, authority transfer requires a two-step 
 | sss-core | `CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei` | [View Details](https://explorer.solana.com/address/CoREsjH41J3KezywbudJC4gHqCE1QhNWaXRbC1QjA9ei?cluster=devnet) |
 | sss-transfer-hook | `HooKchDVVKm7GkAX4w75bbaQUbMcDUnYXSzqLZCWKCDH` | [View Details](https://explorer.solana.com/address/HooKchDVVKm7GkAX4w75bbaQUbMcDUnYXSzqLZCWKCDH?cluster=devnet) |
 
-*JSON representations of full devnet lifecycle operations can be found in `deployments/`*
+*JSON representations of full devnet lifecycle operations can be found in [deployments/](deployments/)*
 
 ## Project Structure
 
